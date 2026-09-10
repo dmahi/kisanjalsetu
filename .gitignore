@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Capacitor native build outputs
+mobile-app/android/app/build/
+mobile-app/ios/App/build/
+mobile-app/android/.gradle/
+mobile-app/ios/App/Pods/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Mongo volumes
+data/
+# Uploaded media
+backend/uploads/
+
+# Vercel CLI (local project link)
+.vercel/
+
+# Local APK builds (installable artifacts, not source)
+*.apk
+# Build error captures
+build-errors.txt

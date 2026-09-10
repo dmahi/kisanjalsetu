@@ -1,0 +1,29 @@
+{
+  "name": "water-tubwell-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tubewell water & customer billing management system (Capacitor mobile + NestJS backend + React admin)",
+  "workspaces": [
+    "backend",
+    "mobile-app",
+    "admin-panel"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,mobile,admin -c blue,green,yellow \"npm run dev -w backend\" \"npm run dev -w mobile-app\" \"npm run dev -w admin-panel\"",
+    "dev:backend": "npm run dev -w backend",
+    "dev:mobile": "npm run dev -w mobile-app",
+    "dev:admin": "npm run dev -w admin-panel",
+    "build": "npm run build -w backend && npm run build -w mobile-app && npm run build -w admin-panel",
+    "seed": "npm run seed -w backend",
+    "test": "npm run test -w backend",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.21.5": true
+  }
+}

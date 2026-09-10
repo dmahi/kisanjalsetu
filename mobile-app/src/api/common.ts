@@ -1,0 +1,56 @@
+import { apiRequest } from './client';
+
+export interface Crop {
+  id: string;
+  name: string;
+  status: string;
+}
+
+export interface Field {
+  id: string;
+  customerId: string;
+  name: string;
+  area: number;
+  areaUnit?: string;
+  location?: string;
+  notes?: string;
+  status: string;
+}
+
+export interface ApiNotification {
+  id: string;
+  title: string;
+  body: string | null;
+  type: string | null;
+  data: Record<string, unknown> | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export const cropsApi = {
+  list: (): Promise<Crop[]> => apiRequest({ url: '/crops', method: 'GET' }),
+};
+
+export const fieldsApi = {
+  list: (): Promise<Field[]> => apiRequest({ url: '/fields', method: 'GET' }),
+  create: (data: { name: string; area?: number; areaUnit?: string; location?: string; notes?: string }): Promise<Field> =>
+    apiRequest({ url: '/fields', method: 'POST', data }),
+  update: (id: string, data: Record<string, unknown>): Promise<Field> =>
+    apiRequest({ url: `/fields/${id}`, method: 'PATCH', data }),
+  remove: (id: string): Promise<void> => apiRequest({ url: `/fields/${id}`, method: 'DELETE' }),
+};
+
+export const notificationsApi = {
+  list: (limit = 50): Promise<ApiNotification[]> =>
+    apiRequest({ url: '/notifications', method: 'GET', params: { limit } }),
+  unreadCount: (): Promise<{ count: number }> =>
+    apiRequest({ url: '/notifications/unread-count', method: 'GET' }),
+  markRead: (id: string): Promise<{ read: boolean }> =>
+    apiRequest({ url: `/notifications/${id}/read`, method: 'POST' }),
+  markAllRead: (): Promise<{ read: boolean }> =>
+    apiRequest({ url: '/notifications/read-all', method: 'POST' }),
+  registerDeviceToken: (token: string, platform = 'fcm'): Promise<{ registered: boolean }> =>
+    apiRequest({ url: '/device-token', method: 'POST', data: { token, platform } }),
+  removeDeviceToken: (token: string): Promise<{ removed: boolean }> =>
+    apiRequest({ url: '/device-token/remove', method: 'POST', data: { token } }),
+};
