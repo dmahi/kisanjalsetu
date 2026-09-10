@@ -64,7 +64,7 @@ export function roleHomePath(role: string | undefined): string {
   if (role === 'farmer') return '/farmer/home';
   return '/owner/dashboard';
 }
-
+// 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   if (!token) return <Navigate to="/login" replace />;
