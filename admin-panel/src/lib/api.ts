@@ -1,7 +1,7 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 
 export const API_BASE_URL =
-  (import.meta.env?.VITE_API_URL as string | undefined) || 'http://localhost:2345/api';
+  (import.meta.env?.VITE_API_URL as string | undefined) || 'https://kisanjalsetu-backend.onrender.com/api';
 
 const TOKEN_KEY = 'waterapp.admin_token';
 
