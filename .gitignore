@@ -49,3 +49,4 @@ backend/uploads/
 *.apk
 # Build error captures
 build-errors.txt
+.vercel
