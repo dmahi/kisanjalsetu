@@ -38,8 +38,28 @@ export async function uploadImage(file: Blob, filename = 'photo.jpg'): Promise<s
 /** All API traffic goes through this instance. */
 const client = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000,
+  timeout: 90000,
   headers: { 'Content-Type': 'application/json' },
+});
+
+let retryInFlight = 0;
+
+client.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const noResponse = !error.response;
+  const isTimeout = error.code === 'ECONNABORTED';
+  if ((noResponse || isTimeout) && retryInFlight < 2) {
+    retryInFlight += 1;
+    const config = error.config;
+    if (config) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        return await client.request(config);
+      } finally {
+        retryInFlight -= 1;
+      }
+    }
+  }
+  return Promise.reject(error);
 });
 
 const TOKEN_KEY = 'waterapp.token';
