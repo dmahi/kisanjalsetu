@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "289078934773",
+    "project_id": "kisanjalsetu",
+    "storage_bucket": "kisanjalsetu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289078934773:android:f6db2687d6261bee4659bc",
+        "android_client_info": {
+          "package_name": "com.kisanjalsetu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIp4_z00USlwxBEOMWK2vHiX5RPsAaBt4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

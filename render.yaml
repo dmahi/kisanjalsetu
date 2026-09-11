@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: kisanjalsetu-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    startCommand: NODE_ENV=production node dist/main.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Secrets — leave empty here; set them in Render dashboard after service creation
+      - key: MONGODB_URI
+        value: ""
+        sync: false
+      - key: JWT_SECRET
+        value: ""
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        value: ""
+        sync: false
+      - key: FIREBASE_SERVER_KEY
+        value: ""
+        sync: false
+      # Safe defaults (committed)
+      - key: JWT_EXPIRES_IN
+        value: "30d"
+      - key: APP_TIMEZONE
+        value: "Asia/Kolkata"
+      - key: OTP_TTL_MINUTES
+        value: "10"
+      - key: OTP_RESEND_SECONDS
+        value: "60"
+      - key: OTP_MAX_ATTEMPTS
+        value: "5"
+      - key: OTP_PROVIDER
+        value: "log"
+      - key: CORS_ORIGINS
+        value: "https://kisanjalsetu-backend.onrender.com,http://localhost:5173,http://localhost:5174"

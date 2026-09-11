@@ -24,6 +24,7 @@ import { MoneyService } from '../common/money.service';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WaterGateway } from '../water/water.gateway';
 
 export interface SessionFilters {
   tubewellId?: string;
@@ -51,6 +52,7 @@ export class SessionsService {
     private readonly money: MoneyService,
     private readonly logsService: ActivityLogsService,
     private readonly notificationsService: NotificationsService,
+    private readonly waterGateway: WaterGateway,
   ) {}
 
   async start(
@@ -126,6 +128,16 @@ export class SessionsService {
         newValues: { tubewellId: dto.tubewellId, customerId: dto.customerId },
         description: 'Started water session for customer',
       });
+      await this.notifyFarmer(tubewell, result as WaterSessionDocument);
+      this.waterGateway.emitWaterStarted(dto.tubewellId, {
+        sessionId: String((result as WaterSessionDocument)._id),
+        tubewellId: dto.tubewellId,
+        tubewellName: tubewell.name,
+        customerId: dto.customerId,
+        fieldId: dto.fieldId,
+        startTime: startDatetime,
+        ratePerHour: this.money.paiseToRupees(tubewell.settings?.ratePerHourPaise ?? 0),
+      });
       return result;
     } catch (err: any) {
       if (err?.code === 11000) {
@@ -176,6 +188,20 @@ export class SessionsService {
       oldValues: oldSnap,
       newValues: this.snapshot(session),
       description: `Stopped water. Duration ${billing.durationMinutes} min, bill ₹${this.money.paiseToRupees(billing.finalPaise)}`,
+    });
+
+    const stoppedTubewell = await this.tubewellsService.findById(String(session.tubewellId));
+    this.waterGateway.emitWaterStopped(String(session.tubewellId), {
+      sessionId: String(session._id),
+      tubewellId: String(session.tubewellId),
+      tubewellName: stoppedTubewell?.name || '',
+      customerId: String(session.customerId),
+      fieldId: session.fieldId ? String(session.fieldId) : undefined,
+      startTime: session.startDatetime,
+      endTime: end,
+      durationMinutes: billing.durationMinutes,
+      totalAmount: this.money.paiseToRupees(billing.finalPaise),
+      ratePerHour: this.money.paiseToRupees(session.ratePerHourPaise),
     });
 
     return session;
@@ -253,6 +279,15 @@ export class SessionsService {
           description: 'Customer started water (self-service)',
         });
         await this.notifyTubewellOwner(tubewell, result as WaterSessionDocument, 'session_started', 'Customer started water');
+        this.waterGateway.emitWaterStarted(dto.tubewellId, {
+          sessionId: String((result as WaterSessionDocument)._id),
+          tubewellId: dto.tubewellId,
+          tubewellName: tubewell.name,
+          customerId,
+          fieldId: dto.fieldId,
+          startTime: new Date(),
+          ratePerHour: this.money.paiseToRupees(tubewell.settings?.ratePerHourPaise ?? 0),
+        });
       }
       return result;
     } catch (err: any) {
@@ -318,6 +353,18 @@ export class SessionsService {
     const tubewell = await this.tubewellsService.findById(String(session.tubewellId));
     if (tubewell) {
       await this.notifyTubewellOwner(tubewell, session, 'session_stopped', 'Customer stopped water');
+      this.waterGateway.emitWaterStopped(String(session.tubewellId), {
+        sessionId: String(session._id),
+        tubewellId: String(session.tubewellId),
+        tubewellName: tubewell.name,
+        customerId,
+        fieldId: session.fieldId ? String(session.fieldId) : undefined,
+        startTime: session.startDatetime,
+        endTime: end,
+        durationMinutes: billing.durationMinutes,
+        totalAmount: this.money.paiseToRupees(billing.finalPaise),
+        ratePerHour: this.money.paiseToRupees(session.ratePerHourPaise),
+      });
     }
     return session;
   }
@@ -348,6 +395,28 @@ export class SessionsService {
         tubewellName: tubewell.name,
         durationMinutes: session.durationMinutes ?? null,
         finalAmountPaise: session.finalAmountPaise ?? 0,
+      },
+    });
+  }
+
+  private async notifyFarmer(
+    tubewell: any,
+    session: WaterSessionDocument,
+  ): Promise<void> {
+    if (!session?.customerId) return;
+    const farmer = await this.usersService.findById(String(session.customerId));
+    if (!farmer) return;
+    const body = `Water started on ${tubewell.name} for your field`;
+    await this.notificationsService.create({
+      userId: String(farmer._id),
+      title: 'Water Started',
+      body,
+      type: 'water_started',
+      data: {
+        sessionId: String(session._id),
+        tubewellId: String(session.tubewellId),
+        tubewellName: tubewell.name,
+        fieldId: session.fieldId ? String(session.fieldId) : null,
       },
     });
   }

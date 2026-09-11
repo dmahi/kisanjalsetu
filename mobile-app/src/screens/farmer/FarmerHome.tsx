@@ -158,13 +158,13 @@ export default function FarmerHome() {
           <div>
             <div style={{ fontWeight: 800 }}>{selectedTw?.name ?? ''}</div>
             <div className="counter-label">{t('no_running_session')}</div>
-            <div className="counter-label" style={{ color: 'var(--ink-soft)' }}>{t('owner_controls_water')}</div>
+            <div className="counter-label" >{t('owner_controls_water')}</div>
             {(() => {
               const last = sessions.find((s) => s.status === 'completed');
               if (!last) return null;
               const ended = last.endDatetime ? ` · ${new Date(last.endDatetime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : '';
               return (
-                <div className="counter-label" style={{ color: 'var(--green)' }}>
+                <div className="counter-label">
                   {t('last_stopped', { time: ended })}
                   {t('last_stopped_amount', { amount: formatINR(last.finalAmountPaise) })}
                 </div>

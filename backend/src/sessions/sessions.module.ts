@@ -11,6 +11,8 @@ import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { MoneyService } from '../common/money.service';
+import { WaterModule } from '../water/water.module';
+import { WaterGateway } from '../water/water.gateway';
 
 @Module({
   imports: [
@@ -21,9 +23,10 @@ import { MoneyService } from '../common/money.service';
     ActivityLogsModule,
     UsersModule,
     NotificationsModule,
+    WaterModule,
   ],
-  providers: [SessionsService, BillingService, MoneyService],
-  exports: [SessionsService, BillingService],
+  providers: [SessionsService, BillingService, MoneyService, WaterGateway],
+  exports: [SessionsService, BillingService, WaterGateway],
   controllers: [OwnerSessionsController, CustomerSessionsController],
 })
 export class SessionsModule {}

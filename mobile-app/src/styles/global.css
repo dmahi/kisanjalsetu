@@ -162,7 +162,10 @@ label {
   pointer-events: none;
 }
 
-.page-auth > * { position: relative; z-index: 1; }
+.page-auth>* {
+  position: relative;
+  z-index: 1;
+}
 
 .auth-hero {
   text-align: center;
@@ -196,12 +199,18 @@ label {
   font-size: 0.92rem;
 }
 
-.auth-hero-sm { padding: 2px 8px 18px; }
+.auth-hero-sm {
+  padding: 2px 8px 18px;
+}
+
 .auth-hero-sm h1 {
   font-size: 1.45rem;
   margin-top: 6px;
 }
-.auth-hero-sm p { margin-top: 6px; }
+
+.auth-hero-sm p {
+  margin-top: 6px;
+}
 
 .auth-card {
   border-radius: var(--radius-lg);
@@ -299,6 +308,7 @@ label {
   display: flex;
   gap: 10px;
   margin-bottom: 12px;
+  margin-top: 12px;
 }
 
 .stat .label {
@@ -315,16 +325,38 @@ label {
   margin-top: 4px;
 }
 
-.stat .value.green { color: var(--green); }
-.stat .value.red { color: var(--red); }
-.stat .value.blue { color: var(--blue-600); }
-.stat .value.amber { color: var(--amber); }
+.stat .value.green {
+  color: var(--green);
+}
+
+.stat .value.red {
+  color: var(--red);
+}
+
+.stat .value.blue {
+  color: var(--blue-600);
+}
+
+.stat .value.amber {
+  color: var(--amber);
+}
 
 /* Tinted stat cards where supported */
-.stat:has(.value.green) { background: linear-gradient(135deg, #f0faf3, #e6f6ec); }
-.stat:has(.value.blue) { background: linear-gradient(135deg, #effaff, #e0f4fa); }
-.stat:has(.value.red) { background: linear-gradient(135deg, #fff4f4, #fdecec); }
-.stat:has(.value.amber) { background: linear-gradient(135deg, #fef9ee, #fdf3e0); }
+.stat:has(.value.green) {
+  background: linear-gradient(135deg, #f0faf3, #e6f6ec);
+}
+
+.stat:has(.value.blue) {
+  background: linear-gradient(135deg, #effaff, #e0f4fa);
+}
+
+.stat:has(.value.red) {
+  background: linear-gradient(135deg, #fff4f4, #fdecec);
+}
+
+.stat:has(.value.amber) {
+  background: linear-gradient(135deg, #fef9ee, #fdf3e0);
+}
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -401,7 +433,7 @@ label {
   padding: 18px 18px 16px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 26px rgba(0, 120, 220, 0.35);
+  box-shadow: 0 10px 50px rgba(0, 120, 220, 0.35);
 }
 
 .counter::after {
@@ -443,12 +475,37 @@ label {
   font-weight: 800;
 }
 
-.pill.paid { background: var(--green-soft); color: var(--green); }
-.pill.pending { background: var(--amber-soft); color: var(--amber); }
-.pill.cancelled { background: #f0f0ee; color: var(--ink-soft); }
-.pill.danger { background: var(--red-soft); color: var(--red); }
-.pill.info { background: var(--blue-soft); color: var(--blue-600); }
-.pill.partial { background: var(--violet-soft); color: var(--violet); }
+.pill.paid {
+  background: var(--green-soft);
+  color: var(--green);
+  text-align: center;
+  margin-top: auto;
+}
+
+.pill.pending {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.pill.cancelled {
+  background: #f0f0ee;
+  color: var(--ink-soft);
+}
+
+.pill.danger {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.pill.info {
+  background: var(--blue-soft);
+  color: var(--blue-600);
+}
+
+.pill.partial {
+  background: var(--violet-soft);
+  color: var(--violet);
+}
 
 /* ---------- List rows ---------- */
 .row {
@@ -471,15 +528,27 @@ label {
 
 .row-sub {
   font-size: 0.8rem;
-  color: var(--ink-soft);
+  color: var(--line);
   margin-top: 2px;
 }
 
 /* ---------- Misc ---------- */
-.muted { color: var(--ink-soft); }
-.center { text-align: center; }
-.mt { margin-top: 12px; }
-.mt-lg { margin-top: 24px; }
+.muted {
+  color: var(--ink-soft);
+}
+
+.center {
+  text-align: center;
+}
+
+.mt {
+  margin-top: 12px;
+}
+
+.mt-lg {
+  margin-top: 24px;
+}
+
 .badge-dot {
   width: 9px;
   height: 9px;
@@ -525,7 +594,9 @@ label {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .empty {
@@ -600,12 +671,24 @@ label {
   animation: toast-in 0.2s ease;
 }
 
-.toast.success { background: var(--brand-deep); }
-.toast.error { background: var(--red); }
+.toast.success {
+  background: var(--brand-deep);
+}
+
+.toast.error {
+  background: var(--red);
+}
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translate(-50%, -8px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 .segmented {
@@ -631,8 +714,18 @@ label {
   box-shadow: var(--shadow);
 }
 
-.sheet-title { font-weight: 800; font-size: 1.1rem; margin: 0 0 6px; }
-.close-btn { float: right; font-size: 1.4rem; color: var(--ink-soft); line-height: 1; }
+.sheet-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin: 0 0 6px;
+}
+
+.close-btn {
+  float: right;
+  font-size: 1.4rem;
+  color: var(--ink-soft);
+  line-height: 1;
+}
 
 /* ---------- Become a Tubewell Owner ---------- */
 .field-label {
@@ -656,7 +749,9 @@ label {
   margin-top: 6px;
 }
 
-.gps-row input { min-width: 0; }
+.gps-row input {
+  min-width: 0;
+}
 
 .owner-profile-photo {
   display: flex;

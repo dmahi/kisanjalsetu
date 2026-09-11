@@ -18,6 +18,8 @@ import { ReportsModule } from './reports/reports.module';
 import { AdminModule } from './admin/admin.module';
 import { SyncModule } from './sync/sync.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { WaterModule } from './water/water.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -49,7 +51,9 @@ import { UploadsModule } from './uploads/uploads.module';
     AdminModule,
     SyncModule,
     UploadsModule,
+    WaterModule,
   ],
+  controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
