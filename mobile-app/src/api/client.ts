@@ -7,6 +7,7 @@ export interface ApiEnvelope<T = unknown> {
   data: T;
   errors?: Record<string, string[]>;
 }
+console.log('API_BASE_URL', API_BASE_URL);
 
 /** Base origin (no /api suffix) for serving uploaded files. */
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
@@ -41,6 +42,7 @@ const client = axios.create({
   timeout: 90000,
   headers: { 'Content-Type': 'application/json' },
 });
+console.log('client', client);
 
 let retryInFlight = 0;
 

@@ -4,6 +4,6 @@ export const isCapacitorNative = (): boolean =>
 
 const DEFAULT_HOST = isCapacitorNative() && /android/i.test(navigator.userAgent)
   ? 'https://backend-olive-iota-17.vercel.app/api'
-  : 'http://localhost:2345/api';
+  : 'https://kisanjalsetu-backend.onrender.com/api';
 
 export const API_BASE_URL = (import.meta.env?.VITE_API_URL as string | undefined) || DEFAULT_HOST;
