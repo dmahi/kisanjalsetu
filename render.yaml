@@ -3,6 +3,7 @@ services:
     name: kisanjalsetu-backend
     runtime: node
     rootDir: backend
+    plan: free
     buildCommand: npm install --legacy-peer-deps && npm run build
     startCommand: NODE_ENV=production node dist/main.js
     healthCheckPath: /api/health
