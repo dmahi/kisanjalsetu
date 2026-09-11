@@ -21,7 +21,7 @@ async function bootstrap() {
         credentials: true,
       });
 
-      mkdirSync(join(process.cwd(), 'uploads'), { recursive: true });
+      try { mkdirSync(join(process.cwd(), 'uploads'), { recursive: true }); } catch { /* serverless: ignore */ }
       app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
       app.useGlobalPipes(
