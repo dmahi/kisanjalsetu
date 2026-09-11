@@ -8,18 +8,14 @@ services:
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
-      # Secrets — leave empty here; set them in Render dashboard after service creation
+      # Secrets — set these manually in the Render dashboard (value kept out of repo)
       - key: MONGODB_URI
-        value: ""
         sync: false
       - key: JWT_SECRET
-        value: ""
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT
-        value: ""
         sync: false
       - key: FIREBASE_SERVER_KEY
-        value: ""
         sync: false
       # Safe defaults (committed)
       - key: JWT_EXPIRES_IN
