@@ -1,20 +1,28 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { App as CapApp } from '@capacitor/app';
 import { useAuthStore } from './store/auth.store';
 import { useSessionTimerStore, ensureTicker } from './store/sessionTimer.store';
 import { useSelectionStore } from './store/tubewellSelection.store';
-import { initPushNotifications, seedSessionNotifications } from './lib/notifications';
+import {
+  initPushNotifications,
+  seedSessionNotifications,
+  setPushNavigator,
+  uploadDeviceToken,
+} from './lib/notifications';
 import { initNetworkMonitor, subscribeNetworkStatus } from './lib/network';
 import { flushQueue, queuedCount } from './lib/offlineQueue';
 import { AppRoutes } from './router';
 
 export default function App() {
   const initialized = useAuthStore((s) => s.initialized);
+  const user = useAuthStore((s) => s.user);
   const hydrateAuth = useAuthStore((s) => s.hydrate);
   const hydrateTimer = useSessionTimerStore((s) => s.hydrate);
   const hydrateSelection = useSelectionStore((s) => s.hydrate);
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     void hydrateAuth();
@@ -53,6 +61,19 @@ export default function App() {
       CapApp.removeAllListeners().catch(() => undefined);
     };
   }, [hydrateAuth, hydrateTimer]);
+
+  // Provide the router navigate function so notification taps can deep-link
+  // from outside React context (Capacitor push listeners).
+  useEffect(() => {
+    if (!user) return;
+    setPushNavigator((path: string) => navigate(path, { replace: true }));
+  }, [navigate, user]);
+
+  // Re-upload FCM token with device info after login completes / user becomes
+  // available (registration listener runs before auth is hydrated).
+  useEffect(() => {
+    if (user) void uploadDeviceToken();
+  }, [user]);
 
   if (!initialized) {
     return (

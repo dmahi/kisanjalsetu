@@ -3,16 +3,6 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/decorators';
 import { NotificationsService } from './notifications.service';
-import { IsIn, IsOptional, IsString } from 'class-validator';
-
-class RegisterDeviceTokenDto {
-  @IsString()
-  token: string;
-
-  @IsOptional()
-  @IsIn(['fcm', 'apns'])
-  platform?: string;
-}
 
 @ApiTags('notifications')
 @ApiBearerAuth()
@@ -50,25 +40,5 @@ export class NotificationsController {
   async readAll(@CurrentUser() user: AuthUser) {
     await this.notificationsService.markAllRead(user.id);
     return { read: true };
-  }
-}
-
-@ApiTags('device-tokens')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
-@Controller('api/device-token')
-export class DeviceTokenController {
-  constructor(private readonly notificationsService: NotificationsService) {}
-
-  @Post()
-  async register(@CurrentUser() user: AuthUser, @Body() dto: RegisterDeviceTokenDto) {
-    await this.notificationsService.registerDeviceToken(user.id, dto.token, dto.platform || 'fcm');
-    return { registered: true };
-  }
-
-  @Post('remove')
-  async remove(@CurrentUser() user: AuthUser, @Body('token') token: string) {
-    await this.notificationsService.unregisterDeviceToken(user.id, token);
-    return { removed: true };
   }
 }

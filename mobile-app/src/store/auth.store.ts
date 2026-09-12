@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { User } from '../api/auth';
 import { authApi } from '../api/auth';
 import { setAsyncTokenProvider, getToken } from '../api/client';
+import { deactivateDeviceToken } from '../lib/notifications';
 import { Preferences } from '@capacitor/preferences';
 
 const AUTH_USER_KEY = 'waterapp.auth_user';
@@ -66,6 +67,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    try {
+      await deactivateDeviceToken();
+    } catch {
+      /* ignore */
+    }
     try {
       await authApi.logout();
     } catch {

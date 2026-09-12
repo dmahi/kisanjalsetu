@@ -28,7 +28,12 @@ export class Notification {
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
 NotificationSchema.index({ userId: 1, createdAt: -1 });
 
-@Schema({ timestamps: true })
+/**
+ * Registered FCM device tokens, one document per token per user. A user can
+ * have multiple active devices; tokens are soft-deactivated (never hard
+ * deleted) on logout or when FCM reports the token as invalid/unregistered.
+ */
+@Schema({ timestamps: true, collection: 'fcm_devices' })
 export class DeviceToken {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   userId: Types.ObjectId;
@@ -38,7 +43,33 @@ export class DeviceToken {
 
   @Prop({ default: 'fcm', enum: ['fcm', 'apns'] })
   platform: string;
+
+  /** Stable per-install id reported by the client (token refresh tracking). */
+  @Prop({ index: true })
+  deviceId?: string;
+
+  @Prop({ default: 'phone', enum: ['phone', 'tablet', 'web'] })
+  deviceType?: string;
+
+  @Prop()
+  appVersion?: string;
+
+  @Prop({ default: true, index: true })
+  isActive: boolean;
+
+  @Prop()
+  lastSeenAt?: Date;
+
+  @Prop()
+  lastSuccessAt?: Date;
+
+  @Prop()
+  lastFailureAt?: Date;
+
+  @Prop()
+  failureReason?: string;
 }
 
 export const DeviceTokenSchema = SchemaFactory.createForClass(DeviceToken);
 DeviceTokenSchema.index({ userId: 1, token: 1 }, { unique: true });
+DeviceTokenSchema.index({ userId: 1, isActive: 1 });

@@ -7,11 +7,10 @@ import {
   NotificationSchema,
 } from './schemas/notification.schema';
 import { NotificationsService } from './notifications.service';
+import { FcmService } from './fcm.service';
 import { PushSender } from './push.sender';
-import {
-  DeviceTokenController,
-  NotificationsController,
-} from './notifications.controller';
+import { NotificationsController } from './notifications.controller';
+import { FcmController } from './fcm.controller';
 
 @Module({
   imports: [
@@ -20,8 +19,8 @@ import {
       { name: DeviceToken.name, schema: DeviceTokenSchema },
     ]),
   ],
-  providers: [NotificationsService, PushSender],
-  exports: [NotificationsService],
-  controllers: [NotificationsController, DeviceTokenController],
+  providers: [NotificationsService, FcmService, PushSender],
+  exports: [NotificationsService, FcmService],
+  controllers: [NotificationsController, FcmController],
 })
 export class NotificationsModule {}

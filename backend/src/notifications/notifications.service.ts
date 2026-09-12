@@ -2,12 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
-  DeviceToken,
-  DeviceTokenDocument,
   Notification,
   NotificationDocument,
 } from './schemas/notification.schema';
-import { PushSender } from './push.sender';
+import { FcmService } from './fcm.service';
 
 export interface NotificationInput {
   userId: string;
@@ -19,16 +17,14 @@ export interface NotificationInput {
 
 /**
  * In-app notification history, plus optional FCM push delivery to every
- * registered device for the user. Both roles see the same history.
+ * registered device for the user via FcmService.
  */
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectModel(Notification.name)
     private readonly notificationModel: Model<NotificationDocument>,
-    @InjectModel(DeviceToken.name)
-    private readonly deviceTokenModel: Model<DeviceTokenDocument>,
-    private readonly pushSender: PushSender,
+    private readonly fcmService: FcmService,
   ) {}
 
   async create(input: NotificationInput): Promise<NotificationDocument> {
@@ -42,19 +38,16 @@ export class NotificationsService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const saved = await this.notificationModel.create(doc as any);
 
-    if (this.pushSender.enabled) {
-      const tokens = await this.deviceTokenModel
-        .find({ userId: new Types.ObjectId(input.userId) })
-        .select('token')
-        .exec();
-      for (const t of tokens) {
-        await this.pushSender.send(t.token, {
-          title: input.title,
-          body: input.body,
-          data: { type: input.type || 'info', ...(input.data || {}) },
-        });
-      }
-    }
+    // Fire-and-forget: push must never block the API response.
+    this.fcmService
+      .sendToUser(input.userId, {
+        title: input.title,
+        body: input.body,
+        data: { type: input.type || 'info', ...(input.data || {}) },
+        channel: this.mapTypeToChannel(input.type),
+      })
+      .catch(() => undefined);
+
     return saved;
   }
 
@@ -86,15 +79,10 @@ export class NotificationsService {
       .exec();
   }
 
-  async registerDeviceToken(userId: string, token: string, platform = 'fcm'): Promise<void> {
-    await this.deviceTokenModel.updateOne(
-      { userId: new Types.ObjectId(userId), token },
-      { platform },
-      { upsert: true },
-    ).exec();
-  }
-
-  async unregisterDeviceToken(userId: string, token: string): Promise<void> {
-    await this.deviceTokenModel.deleteOne({ userId: new Types.ObjectId(userId), token }).exec();
+  private mapTypeToChannel(type?: string): string {
+    if (!type) return 'general';
+    if (type.startsWith('water') || type.startsWith('session')) return 'water';
+    if (type.startsWith('payment')) return 'payments';
+    return 'general';
   }
 }

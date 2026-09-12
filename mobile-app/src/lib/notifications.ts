@@ -1,3 +1,4 @@
+import { App } from '@capacitor/app';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Preferences } from '@capacitor/preferences';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -15,6 +16,11 @@ export interface SessionCounterInfo {
 
 const RUNNING_KEY = 'waterapp.running_session';
 const START_BASE_ID = 9000;
+const FCM_TOKEN_KEY = 'waterapp.fcm_token';
+const DEVICE_ID_KEY = 'waterapp.device_id';
+export const GENERAL_CHANNEL_ID = 'general';
+export const WATER_CHANNEL_ID = 'water';
+export const PAYMENTS_CHANNEL_ID = 'payments';
 
 export interface RunningSessionCached {
   id: string;
@@ -90,6 +96,7 @@ export async function seedSessionNotifications(info: SessionCounterInfo): Promis
         title: '⏱ Water still running',
         body: `${info.customerName ?? 'Water'} session running · ${s1.time} · approx ₹${s1.amount}. Stop when done.`,
         schedule: { at: new Date(startedMs + info.intervalMinutes * 60000) },
+        channelId: GENERAL_CHANNEL_ID,
         sound: 'default',
         smallIcon: 'ic_stat_water',
       },
@@ -105,6 +112,7 @@ export async function seedSessionNotifications(info: SessionCounterInfo): Promis
         title: '🕐 Session counter',
         body: `${info.customerName ?? 'Water'} · ~1h elapsed · approx ₹${s2.amount}. Stop this session when finished.`,
         schedule: { every: 'hour', count: 36 },
+        channelId: GENERAL_CHANNEL_ID,
         sound: 'default',
         smallIcon: 'ic_stat_water',
       },
@@ -126,6 +134,7 @@ export async function refreshSessionNotification(info: SessionCounterInfo): Prom
           title: '⏱ Water still running',
           body: `${info.customerName ?? 'Water'} · ~${Math.floor(elapsedMin / 60)}h ${elapsedMin % 60}m · approx ₹${amount}.`,
           schedule: { at: new Date(startedMs + info.intervalMinutes * 60000) },
+          channelId: GENERAL_CHANNEL_ID,
           sound: 'default',
           smallIcon: 'ic_stat_water',
         },
@@ -145,9 +154,201 @@ export async function cancelSessionNotifications(): Promise<void> {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * FCM device token lifecycle                                          *
+ * ------------------------------------------------------------------ */
+
+/** Latest FCM token known to this install (nil until FCM registers). */
+let latestFcmToken: string | null = null;
+/** Notification payload captured when the app was launched from a tap. */
+let pendingNotificationAction: Record<string, unknown> | null = null;
+/** Injected by the router so a background/closed tap can deep-link. */
+let pushNavigator: ((path: string) => void) | null = null;
+
+/** Let the React router provide a navigation function for notification taps. */
+export function setPushNavigator(fn: (path: string) => void): void {
+  pushNavigator = fn;
+  if (pendingNotificationAction) {
+    const action = pendingNotificationAction;
+    pendingNotificationAction = null;
+    void routeFromAction(action);
+  }
+}
+
+/** Data captured when a tap launched a cold/backgrounded app (before router). */
+export function getPendingNotificationAction(): Record<string, unknown> | null {
+  return pendingNotificationAction;
+}
+
+/** FCM token to send on logout / re-upload after login. */
+export async function getFcmToken(): Promise<string | null> {
+  if (latestFcmToken) return latestFcmToken;
+  const { value } = await Preferences.get({ key: FCM_TOKEN_KEY });
+  return value || null;
+}
+
+function generateDeviceId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+async function getDeviceId(): Promise<string> {
+  const { value } = await Preferences.get({ key: DEVICE_ID_KEY });
+  if (value) return value;
+  const id = generateDeviceId();
+  await Preferences.set({ key: DEVICE_ID_KEY, value: id });
+  return id;
+}
+
+async function getAppVersion(): Promise<string | undefined> {
+  try {
+    const info = await App.getInfo();
+    return info?.version;
+  } catch {
+    return undefined;
+  }
+}
+
+function detectDeviceType(): string {
+  if (!isCapacitorNative()) return 'web';
+  const ua = navigator.userAgent.toLowerCase();
+  return /tablet|ipad/i.test(ua) ? 'tablet' : 'phone';
+}
+
+/**
+ * Upload the current FCM token together with device metadata. No-ops until a
+ * token exists and the user is authenticated.
+ */
+export async function uploadDeviceToken(): Promise<void> {
+  const token = latestFcmToken || (await getFcmToken());
+  if (!token) return;
+  const auth = localStorage.getItem('waterapp.token') || (await Preferences.get({ key: 'waterapp.token' })).value;
+  if (!auth) return;
+  const [deviceId, appVersion] = await Promise.all([getDeviceId(), getAppVersion()]);
+  try {
+    await notificationsApi.registerDeviceToken({
+      token,
+      deviceId,
+      deviceType: detectDeviceType(),
+      appVersion,
+    });
+  } catch (err) {
+    console.warn('device token upload failed', err);
+  }
+}
+
+/** Deactivate the current device's token on the server (logout). */
+export async function deactivateDeviceToken(): Promise<void> {
+  const token = latestFcmToken || (await getFcmToken());
+  if (!token) return;
+  try {
+    await notificationsApi.logoutDeviceToken(token);
+  } catch (err) {
+    console.warn('device token logout failed', err);
+  }
+  latestFcmToken = null;
+  await Preferences.remove({ key: FCM_TOKEN_KEY });
+}
+
+async function ensureNotificationChannel(): Promise<void> {
+  if (!isCapacitorNative()) return;
+  try {
+    // Channels must exist before FCM messages target them (Step 11). Creating
+    // is idempotent, so this is safe to run on every bootstrap.
+    await LocalNotifications.createChannel({
+      id: GENERAL_CHANNEL_ID,
+      name: 'General',
+      description: 'Water status and session notifications',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+    });
+    await LocalNotifications.createChannel({
+      id: WATER_CHANNEL_ID,
+      name: 'Water sessions',
+      description: 'Water started / stopped and session updates',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+    });
+    await LocalNotifications.createChannel({
+      id: PAYMENTS_CHANNEL_ID,
+      name: 'Payments',
+      description: 'Payment requests and approvals',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+    });
+  } catch (err) {
+    console.warn('notification channel failed', err);
+  }
+}
+
+/** Show the incoming foreground FCM notification as a local banner. */
+function displayForegroundNotification(payload: Record<string, unknown>): void {
+  const raw = payload?.data;
+  const parsed =
+    typeof raw === 'string'
+      ? safeParse(raw)
+      : (raw as Record<string, unknown> | undefined) ?? {};
+  void (async () => {
+    if (!(await ensurePermissions())) return;
+    try {
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: Math.floor(Date.now() / 1000) % 2147483647,
+            title: payload?.title ? String(payload.title) : 'KisanJalSetu',
+            body: payload?.body ? String(payload.body) : '',
+            channelId: GENERAL_CHANNEL_ID,
+            sound: 'default',
+            smallIcon: 'ic_stat_water',
+            extra: parsed,
+          },
+        ],
+      });
+    } catch (err) {
+      console.warn('foreground notification failed', err);
+    }
+  })();
+}
+
+import { notificationRouteFor } from './deeplink';
+
+/** Pure mapping of a push type + role to an in-app route (used for deep links). */
+export { notificationRouteFor } from './deeplink';
+
+/** Map a notification action (tap) to a route using role + message data. */
+function routeFromAction(payload: Record<string, unknown>): void {
+  const raw = typeof payload?.data === 'string' ? safeParse(payload.data) : (payload?.data as Record<string, unknown> | undefined);
+  const type = typeof raw?.type === 'string' ? raw.type : 'info';
+  const userRaw = localStorage.getItem('waterapp.auth_user');
+  let role = 'farmer';
+  if (userRaw) {
+    try {
+      role = (JSON.parse(userRaw) as { role?: string }).role || role;
+    } catch {
+      /* ignore */
+    }
+  }
+  const path = notificationRouteFor(type, role);
+  if (pushNavigator) pushNavigator(path);
+}
+
+function safeParse(raw: string): Record<string, unknown> {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
 /**
  * FCM: grant, register, and upload the device token so the backend can send
- * server push. One-time setup in the app bootstrap.
+ * server push. One-time setup in the app bootstrap. Also wires channel
+ * creation, foreground display, and background/closed tap navigation.
  *
  * Requires a Firebase project configured (google-services.json) on Android.
  * Without it, calling PushNotifications.register() crashes the native process
@@ -159,6 +360,7 @@ export async function initPushNotifications(): Promise<void> {
   if (import.meta.env?.VITE_FCM_PUSH !== 'true') return;
   try {
     const ps = PushNotifications;
+    await ensureNotificationChannel();
     const status = await ps.checkPermissions();
     if (status.receive !== 'granted') {
       const req = await ps.requestPermissions();
@@ -166,15 +368,30 @@ export async function initPushNotifications(): Promise<void> {
     }
     await ps.register();
     ps.addListener('registration', async (token: { value: string }) => {
-      try {
-        await notificationsApi.registerDeviceToken(token.value, 'fcm');
-      } catch (err) {
-        console.warn('device token upload failed', err);
-      }
+      latestFcmToken = token.value;
+      await Preferences.set({ key: FCM_TOKEN_KEY, value: token.value });
+      await uploadDeviceToken();
     });
     ps.addListener('registrationError', (err: unknown) =>
       console.warn('FCM registration error', err),
     );
+    ps.addListener('pushNotificationReceived', (n: unknown) => {
+      const payload = n as { title?: string; body?: string; data?: string };
+      displayForegroundNotification(payload as Record<string, unknown>);
+    });
+    ps.addListener('pushNotificationActionPerformed', (n: unknown) => {
+      const action = n as { notification?: { data?: unknown } };
+      const raw = action?.notification?.data;
+      const parsed =
+        typeof raw === 'string'
+          ? safeParse(raw)
+          : (raw as Record<string, unknown> | undefined) ?? {};
+      if (pushNavigator) {
+        routeFromAction({ data: parsed } as Record<string, unknown>);
+      } else {
+        pendingNotificationAction = parsed;
+      }
+    });
   } catch (err) {
     console.warn('Push notifications unavailable', err);
   }

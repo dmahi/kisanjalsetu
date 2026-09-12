@@ -2,13 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
-interface PushPayload {
+export interface PushPayload {
   title: string;
   body?: string;
   data?: Record<string, unknown>;
+  /** Android notification channel id (must already exist client-side). */
+  channel?: string;
 }
 
-interface FirebaseServiceAccount {
+export interface FcmSendResult {
+  ok: boolean;
+  /** True when the token is permanently invalid — the caller should deactivate it. */
+  permanent: boolean;
+  error?: string;
+}
+
+interface ServiceAccount {
   type: string;
   project_id: string;
   private_key_id: string;
@@ -18,29 +27,21 @@ interface FirebaseServiceAccount {
   token_uri: string;
 }
 
-/**
- * Firebase Cloud Messaging sender supporting two credential styles:
- *
- * 1. Modern HTTP v1 API (recommended, works in 2026): set
- *    FIREBASE_SERVICE_ACCOUNT to the JSON of a service account downloaded from
- *    Firebase console → Project settings → Service accounts → "Generate new
- *    private key". An OAuth2 token is minted locally via RS256 JWT (no extra
- *    dependencies) and posted to /v1/projects/{project_id}/messages:send.
- *
- * 2. Legacy HTTP API (retired by Google, kept for older projects): fall back
- *    to FIREBASE_SERVER_KEY when the service account is absent.
- *
- * When no credentials are configured it logs once and no-ops so in-app
- * notification history keeps working for the whole flow.
- */
+const PERMANENT_V1_CODES = new Set(['UNREGISTERED', 'INVALID_ARGUMENT', 'NOT_FOUND']);
+const PERMANENT_LEGACY_ERRORS = new Set([
+  'NotRegistered',
+  'InvalidRegistration',
+  'MismatchSenderId',
+  'InvalidToken',
+]);
+
 @Injectable()
 export class PushSender {
   private readonly logger = new Logger('PushSender');
   private readonly serviceAccountRaw = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT', '');
   private readonly legacyKey = this.config.get<string>('FIREBASE_SERVER_KEY', '');
   private warned = false;
-
-  private cachedServiceAccount: FirebaseServiceAccount | null | undefined;
+  private cachedServiceAccount: ServiceAccount | null | undefined;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -48,64 +49,90 @@ export class PushSender {
     return Boolean(this.serviceAccountRaw || this.legacyKey);
   }
 
-  private get serviceAccount(): FirebaseServiceAccount | null {
+  private get serviceAccount(): ServiceAccount | null {
     if (this.cachedServiceAccount !== undefined) return this.cachedServiceAccount;
     try {
-      this.cachedServiceAccount = JSON.parse(this.serviceAccountRaw) as FirebaseServiceAccount;
+      this.cachedServiceAccount = JSON.parse(this.serviceAccountRaw) as ServiceAccount;
     } catch {
       this.cachedServiceAccount = null;
+    }
+
+    // Fallback: individual FIREBASE_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY
+    // (avoids multiline JSON in the environment; Render supports both styles).
+    if (!this.cachedServiceAccount) {
+      const projectId = this.config.get<string>('FIREBASE_PROJECT_ID', '');
+      const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL', '');
+      const privateKey = this.config.get<string>('FIREBASE_PRIVATE_KEY', '');
+      if (projectId && clientEmail && privateKey) {
+        this.cachedServiceAccount = {
+          type: 'service_account',
+          project_id: projectId,
+          private_key_id: '',
+          private_key: privateKey.replace(/\\n/g, '\n'),
+          client_email: clientEmail,
+          client_id: '',
+          token_uri: 'https://oauth2.googleapis.com/token',
+        };
+      }
     }
     return this.cachedServiceAccount;
   }
 
-  async send(token: string, payload: PushPayload): Promise<void> {
+  async send(token: string, payload: PushPayload): Promise<FcmSendResult> {
     if (!this.enabled) {
       if (!this.warned) {
         this.warned = true;
         this.logger.warn(
-          'FCM not configured (set FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVER_KEY); server push disabled',
+          'FCM not configured (set FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVER_KEY); push disabled',
         );
       }
-      return;
+      return { ok: false, permanent: false, error: 'FCM not configured' };
     }
     try {
-      if (this.serviceAccount) {
-        await this.sendV1(this.serviceAccount, token, payload);
-      } else {
-        await this.sendLegacy(token, payload);
-      }
+      if (this.serviceAccount) return await this.sendV1(this.serviceAccount, token, payload);
+      return await this.sendLegacy(token, payload);
     } catch (err) {
-      this.logger.error(`FCM push error: ${(err as Error).message}`);
+      const msg = (err as Error).message;
+      this.logger.error(`FCM push error: ${msg}`);
+      return { ok: false, permanent: false, error: msg };
     }
   }
 
-  /** FCM HTTP v1: mint an OAuth2 token from the service account, then send. */
-  private async sendV1(sa: FirebaseServiceAccount, token: string, payload: PushPayload): Promise<void> {
+  private async sendV1(sa: ServiceAccount, token: string, payload: PushPayload): Promise<FcmSendResult> {
     const accessToken = await this.fetchAccessToken(sa);
     const data: Record<string, string> = {};
     for (const [k, v] of Object.entries(payload.data || {})) {
       data[k] = typeof v === 'string' ? v : JSON.stringify(v ?? null);
     }
+    const message: Record<string, unknown> = {
+      token,
+      notification: { title: payload.title, body: payload.body || '' },
+      data,
+    };
+    if (payload.channel) {
+      message.android = { notification: { channel_id: payload.channel } };
+    }
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: {
-          token,
-          notification: { title: payload.title, body: payload.body || '' },
-          data,
-        },
-      }),
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
     });
-    if (!res.ok) {
-      this.logger.warn(`FCM v1 send failed (${res.status}): ${await res.text()}`);
+    if (res.ok) return { ok: true, permanent: false };
+
+    let body: { error?: { code?: string; status?: string; message?: string } } = {};
+    try {
+      body = (await res.json()) as typeof body;
+    } catch {
+      /* non-JSON body */
     }
+    const status = body.error?.status || '';
+    const msg = body.error?.message || String(res.status);
+    const permanent = PERMANENT_V1_CODES.has(status) || res.status === 404;
+    this.logger.warn(`FCM v1 send failed (${res.status}): ${msg}`);
+    return { ok: false, permanent, error: msg };
   }
 
-  private async fetchAccessToken(sa: FirebaseServiceAccount): Promise<string> {
+  private async fetchAccessToken(sa: ServiceAccount): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const b64 = (obj: unknown) => Buffer.from(JSON.stringify(obj)).toString('base64url');
     const signed = [
@@ -131,22 +158,26 @@ export class PushSender {
     return json.access_token;
   }
 
-  /** Retired legacy HTTP API — kept only for older Firebase projects. */
-  private async sendLegacy(token: string, payload: PushPayload): Promise<void> {
+  private async sendLegacy(token: string, payload: PushPayload): Promise<FcmSendResult> {
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
-      headers: {
-        Authorization: `key=${this.legacyKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `key=${this.legacyKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to: token,
         notification: { title: payload.title, body: payload.body || '', sound: 'default' },
         data: payload.data || {},
       }),
     });
-    if (!res.ok) {
-      this.logger.warn(`FCM legacy send failed (${res.status}): ${await res.text()}`);
+    if (res.ok) return { ok: true, permanent: false };
+    let body: { results?: { error?: string }[] } = {};
+    try {
+      body = (await res.json()) as typeof body;
+    } catch {
+      /* non-JSON */
     }
+    const errCode = body.results?.[0]?.error || String(res.status);
+    const permanent = PERMANENT_LEGACY_ERRORS.has(errCode);
+    this.logger.warn(`FCM legacy send failed (${res.status}): ${errCode}`);
+    return { ok: false, permanent, error: errCode };
   }
 }

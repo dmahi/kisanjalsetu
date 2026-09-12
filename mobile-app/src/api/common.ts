@@ -40,6 +40,14 @@ export const fieldsApi = {
   remove: (id: string): Promise<void> => apiRequest({ url: `/fields/${id}`, method: 'DELETE' }),
 };
 
+export interface RegisterDeviceTokenData {
+  token: string;
+  platform?: string;
+  deviceId?: string;
+  deviceType?: string;
+  appVersion?: string;
+}
+
 export const notificationsApi = {
   list: (limit = 50): Promise<ApiNotification[]> =>
     apiRequest({ url: '/notifications', method: 'GET', params: { limit } }),
@@ -49,8 +57,10 @@ export const notificationsApi = {
     apiRequest({ url: `/notifications/${id}/read`, method: 'POST' }),
   markAllRead: (): Promise<{ read: boolean }> =>
     apiRequest({ url: '/notifications/read-all', method: 'POST' }),
-  registerDeviceToken: (token: string, platform = 'fcm'): Promise<{ registered: boolean }> =>
-    apiRequest({ url: '/device-token', method: 'POST', data: { token, platform } }),
+  registerDeviceToken: (data: RegisterDeviceTokenData): Promise<{ registered: boolean }> =>
+    apiRequest({ url: '/device/fcm-token', method: 'POST', data: { platform: 'fcm', ...data } }),
+  logoutDeviceToken: (token: string): Promise<{ loggedOut: boolean }> =>
+    apiRequest({ url: '/device/fcm-token/logout', method: 'POST', data: { token } }),
   removeDeviceToken: (token: string): Promise<{ removed: boolean }> =>
-    apiRequest({ url: '/device-token/remove', method: 'POST', data: { token } }),
+    apiRequest({ url: '/device/fcm-token/remove', method: 'POST', data: { token } }),
 };
