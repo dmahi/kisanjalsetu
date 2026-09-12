@@ -15,7 +15,7 @@ import {
   Pill,
   ModalSheet,
 } from '../../components/ui';
-import { formatDateTime } from '../../utils/formatters';
+import { formatDateTime, formatDuration, formatINR } from '../../utils/formatters';
 
 export default function FarmerWaterRequests() {
   const navigate = useNavigate();
@@ -156,7 +156,13 @@ export default function FarmerWaterRequests() {
                     {req.fieldName || 'Field'}{req.cropName ? ` (${req.cropName})` : ''}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: '#666', marginTop: 2 }}>
-                    {req.tubewellName || 'Tubewell'} · Duration: {Math.round(req.requestedDurationMinutes / 60 * 10) / 10} hours
+                    {req.tubewellName || 'Tubewell'} ·{' '}
+                    {req.status === 'completed' && req.actualDurationMinutes != null
+                      ? `Actual Duration: ${formatDuration(req.actualDurationMinutes)}`
+                      : `Duration: ${Math.round(req.requestedDurationMinutes / 60 * 10) / 10} hours`}
+                    {req.status === 'completed' && req.finalAmountPaise != null
+                      ? ` · Total: ${formatINR(req.finalAmountPaise)}`
+                      : ''}
                   </div>
                   {req.note ? (
                     <div style={{ fontSize: '0.82rem', color: '#444', marginTop: 4, fontStyle: 'italic' }}>

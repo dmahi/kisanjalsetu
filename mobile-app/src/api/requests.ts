@@ -12,6 +12,8 @@ export interface WaterRequest {
   cropId?: string | null;
   cropName?: string | null;
   requestedDurationMinutes: number;
+  actualDurationMinutes?: number | null;
+  finalAmountPaise?: number | null;
   requestedDate?: string | null;
   preferredStartTime?: string | null;
   preferredEndTime?: string | null;

@@ -263,6 +263,26 @@ export class WaterRequestsService {
         }
       }
 
+      let actualDurationMinutes: number | null = null;
+      let sessionFinalAmountPaise: number | null = null;
+
+      if (req.status === WATER_REQUEST_STATUS.COMPLETED) {
+        const session = await this.sessionModel
+          .findOne({
+            $or: [
+              { waterRequestId: req._id },
+              { customerId: req.customerId, tubewellId: req.tubewellId, fieldId: req.fieldId, completedAt: { $exists: true } },
+            ],
+          })
+          .sort({ completedAt: -1, createdAt: -1 })
+          .exec();
+
+        if (session && session.durationMinutes != null) {
+          actualDurationMinutes = session.durationMinutes;
+          sessionFinalAmountPaise = session.finalAmountPaise ?? null;
+        }
+      }
+
       out.push({
         id: String(req._id),
         tubewellId: String(req.tubewellId),
@@ -275,6 +295,8 @@ export class WaterRequestsService {
         cropId: req.cropId ? String(req.cropId) : null,
         cropName: req.cropName || null,
         requestedDurationMinutes: req.requestedDurationMinutes,
+        actualDurationMinutes,
+        finalAmountPaise: sessionFinalAmountPaise,
         requestedDate: req.requestedDate || null,
         preferredStartTime: req.preferredStartTime || null,
         preferredEndTime: req.preferredEndTime || null,
