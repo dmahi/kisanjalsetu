@@ -23,7 +23,7 @@ export function NavItem({
 
 const FARMER_TABS = [
   { to: '/farmer/home', icon: '🏠', label: 'home' },
-  { to: '/farmer/tubewells', icon: '🚰', label: 'tubewells' },
+  { to: '/farmer/requests', icon: '📋', label: 'requests' },
   { to: '/farmer/sessions', icon: '💧', label: 'sessions' },
   { to: '/farmer/payments', icon: '💳', label: 'payments' },
   { to: '/farmer/profile', icon: '👤', label: 'profile' },
@@ -31,6 +31,7 @@ const FARMER_TABS = [
 
 const OWNER_TABS = [
   { to: '/owner/dashboard', icon: '📊', label: 'dashboard' },
+  { to: '/owner/queue', icon: '📋', label: 'queue' },
   { to: '/owner/customers', icon: '👥', label: 'customers' },
   { to: '/owner/sessions', icon: '💧', label: 'sessions' },
   { to: '/owner/payments', icon: '💳', label: 'payments' },

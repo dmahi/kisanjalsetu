@@ -33,6 +33,8 @@ export interface StartSessionPayload {
   cropName?: string;
   startDatetime?: string;
   idempotencyKey?: string;
+  waterRequestId?: string;
+  waterQueueEntryId?: string;
 }
 
 export interface ManualSessionPayload {

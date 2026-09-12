@@ -24,6 +24,12 @@ export class WaterSession {
   @Prop({ trim: true })
   cropName?: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'WaterRequest' })
+  waterRequestId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'WaterQueueEntry' })
+  waterQueueEntryId?: Types.ObjectId;
+
   @Prop({ required: true })
   startDatetime: Date;
 

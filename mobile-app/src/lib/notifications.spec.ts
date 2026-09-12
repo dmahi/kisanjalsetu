@@ -6,6 +6,16 @@ describe('notificationRouteFor (deep-link mapping)', () => {
     expect(notificationRouteFor('water_started', 'farmer')).toBe('/farmer/sessions');
     expect(notificationRouteFor('session_stopped', 'tubewell_owner')).toBe('/owner/sessions');
     expect(notificationRouteFor('water_started', 'operator')).toBe('/owner/sessions');
+    expect(notificationRouteFor('water_ended', 'farmer')).toBe('/farmer/sessions');
+  });
+
+  it('routes water request and queue events to the queue/requests screens', () => {
+    expect(notificationRouteFor('water_request_new', 'tubewell_owner')).toBe('/owner/queue');
+    expect(notificationRouteFor('water_request_accepted', 'farmer')).toBe('/farmer/requests');
+    expect(notificationRouteFor('water_request_rejected', 'farmer')).toBe('/farmer/requests');
+    expect(notificationRouteFor('queue_position_changed', 'farmer')).toBe('/farmer/requests');
+    expect(notificationRouteFor('queue_next', 'farmer')).toBe('/farmer/requests');
+    expect(notificationRouteFor('queue_removed', 'farmer')).toBe('/farmer/requests');
   });
 
   it('routes payment events to payments screens', () => {

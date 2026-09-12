@@ -16,8 +16,9 @@ export class StartSessionDto {
   @IsMongoId()
   tubewellId: string;
 
+  @IsOptional()
   @IsMongoId()
-  customerId: string;
+  customerId?: string;
 
   @IsOptional()
   @IsMongoId()
@@ -35,6 +36,14 @@ export class StartSessionDto {
   @IsOptional()
   @IsDateString()
   startDatetime?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  waterRequestId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  waterQueueEntryId?: string;
 
   @IsOptional()
   @IsString()

@@ -4,6 +4,7 @@ import { ownerDashboardApi, type OwnerDashboard } from '../../api/owner';
 import { tubewellApi, type Tubewell } from '../../api/tubewells';
 import { waterSessionApi } from '../../api/sessions';
 import { ownerCustomerApi, type CustomerSummary } from '../../api/tubewells';
+import { waterQueueApi, type WaterQueueEntry } from '../../api/queue';
 import type { Field } from '../../api/common';
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
@@ -36,6 +37,11 @@ export default function OwnerDashboard() {
   const [fieldsLoading, setFieldsLoading] = useState(false);
   const [startedAt, setStartedAt] = useState(toLocalInput(new Date()));
   const [submitting, setSubmitting] = useState(false);
+
+  // Queue state
+  const [waitingQueue, setWaitingQueue] = useState<WaterQueueEntry[]>([]);
+  const [manualOverride, setManualOverride] = useState(false);
+  const [selectedQueueEntry, setSelectedQueueEntry] = useState<WaterQueueEntry | null>(null);
 
   // Load my tubewells once
   useEffect(() => {
@@ -116,6 +122,32 @@ export default function OwnerDashboard() {
     return () => { live = false; };
   }, [customerId, ownerTubewellId]);
 
+  const handleOpenStartModal = async () => {
+    setCreditOpen(true);
+    setManualOverride(false);
+    setStartedAt(toLocalInput(new Date()));
+    if (!ownerTubewellId) return;
+
+    try {
+      const qRes = await waterQueueApi.getQueue(ownerTubewellId);
+      const waiting = qRes.waiting || [];
+      setWaitingQueue(waiting);
+
+      if (waiting.length > 0) {
+        const top = waiting[0];
+        setSelectedQueueEntry(top);
+        setCustomerId(top.customerId);
+        setFieldId(top.fieldId);
+      } else {
+        setSelectedQueueEntry(null);
+        setCustomerId('');
+        setFieldId('');
+      }
+    } catch {
+      setSelectedQueueEntry(null);
+    }
+  };
+
   const startSession = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ownerTubewellId || !customerId) {
@@ -126,6 +158,16 @@ export default function OwnerDashboard() {
       show(t('choose_field'), 'error');
       return;
     }
+
+    // Check manual override confirmation
+    if (manualOverride && waitingQueue.length > 0) {
+      const queuedItem = waitingQueue.find((q) => q.customerId === customerId);
+      if (queuedItem && queuedItem.queuePosition > 1) {
+        const confirmMsg = `${queuedItem.customerName || 'Farmer'} is #${queuedItem.queuePosition} in the queue. Start water for ${queuedItem.customerName || 'Farmer'} anyway?`;
+        if (!window.confirm(confirmMsg)) return;
+      }
+    }
+
     setSubmitting(true);
     const idempotencyKey = crypto.randomUUID();
     const startDatetime = new Date(startedAt).toISOString();
@@ -138,11 +180,13 @@ export default function OwnerDashboard() {
           fieldId,
           startDatetime,
           idempotencyKey,
+          waterQueueEntryId: !manualOverride && selectedQueueEntry ? selectedQueueEntry.id : undefined,
+          waterRequestId: !manualOverride && selectedQueueEntry ? selectedQueueEntry.waterRequestId : undefined,
         });
         await setRunning({
           id: session.id,
           customerId,
-          customerName: customer?.name ?? null,
+          customerName: customer?.name ?? selectedQueueEntry?.customerName ?? null,
           startDatetime: session.startDatetime,
           ratePerHourPaise: session.ratePerHourPaise,
           tubewellId: ownerTubewellId,
@@ -153,7 +197,7 @@ export default function OwnerDashboard() {
         await setRunning({
           id: idempotencyKey,
           customerId,
-          customerName: customer?.name ?? null,
+          customerName: customer?.name ?? selectedQueueEntry?.customerName ?? null,
           startDatetime,
           ratePerHourPaise: tubewells.find((t) => t.id === ownerTubewellId)?.settings.ratePerHourPaise ?? 0,
           tubewellId: ownerTubewellId,
@@ -163,6 +207,8 @@ export default function OwnerDashboard() {
       setCreditOpen(false);
       setCustomerId('');
       setFieldId('');
+      setSelectedQueueEntry(null);
+      setManualOverride(false);
       setTimeout(() => void ownerDashboardApi.dashboard(ownerTubewellId).then(setDashboard), 400);
     } finally {
       setSubmitting(false);
@@ -279,7 +325,7 @@ export default function OwnerDashboard() {
                   <div style={{ fontWeight: 800 }}>{t('no_running_session')}</div>
                   <div className="counter-label">{t('start_water_hint')}</div>
                 </div>
-                <button className="btn btn-secondary" onClick={() => setCreditOpen(true)} style={{ width: 'auto', padding: '12px 20px' }}>
+                <button className="btn btn-secondary" onClick={() => void handleOpenStartModal()} style={{ width: 'auto', padding: '12px 20px' }}>
                   ▶ {t('water_start')}
                 </button>
               </div>
@@ -304,39 +350,90 @@ export default function OwnerDashboard() {
       {/* Start water sheet */}
       <ModalSheet open={creditOpen} onClose={() => setCreditOpen(false)} title={t('water_start')}>
         <form onSubmit={startSession}>
-          <label>{t('customer')}</label>
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">{t('select_customer_ph')}</option>
-            {customers.filter((c) => c.status === 'approved').map((c) => (
-              <option key={c.customerId} value={c.customerId}>
-                {c.name} ({c.phone})
-              </option>
-            ))}
-          </select>
-          {customers.filter((c) => c.status === 'approved').length === 0 ? (
-            <p className="muted" style={{ fontSize: '0.82rem' }}>
-              {t('no_approved_customers')}
-            </p>
-          ) : null}
-          <label>{t('field')}</label>
-          {customerId ? (
-            fieldsLoading ? (
-              <p className="muted" style={{ fontSize: '0.82rem' }}>{t('field_loading')}</p>
-            ) : fields.length === 0 ? (
-              <p className="muted" style={{ fontSize: '0.82rem' }}>{t('mafarmer_no_fields')}</p>
-            ) : (
-              <select value={fieldId} onChange={(e) => setFieldId(e.target.value)}>
-                <option value="">{t('select_field_ph')}</option>
-                {fields.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}{f.area ? ` (${f.area}${f.areaUnit ? f.areaUnit : ''})` : ''}
+          {selectedQueueEntry && !manualOverride ? (
+            <div style={{ backgroundColor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontWeight: 800, color: '#1565c0', fontSize: '0.85rem' }}>
+                  NEXT IN QUEUE (#1)
+                </div>
+                <Pill tone="paid">AUTO-SELECTED</Pill>
+              </div>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', marginTop: 4 }}>
+                {selectedQueueEntry.customerName || 'Farmer'}
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#333', marginTop: 2 }}>
+                Field: <b>{selectedQueueEntry.fieldName || 'Field'}</b> {selectedQueueEntry.cropName ? `(${selectedQueueEntry.cropName})` : ''}
+              </div>
+              <div style={{ marginTop: 10, textAlign: 'right' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  style={{ fontSize: '0.82rem' }}
+                  onClick={() => {
+                    setManualOverride(true);
+                    setCustomerId('');
+                    setFieldId('');
+                  }}
+                >
+                  Optional: Select Different Farmer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {waitingQueue.length > 0 && manualOverride ? (
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-ghost"
+                    onClick={() => {
+                      setManualOverride(false);
+                      const top = waitingQueue[0];
+                      setSelectedQueueEntry(top);
+                      setCustomerId(top.customerId);
+                      setFieldId(top.fieldId);
+                    }}
+                  >
+                    ← Back to Queue #1 ({waitingQueue[0].customerName})
+                  </button>
+                </div>
+              ) : null}
+              <label>{t('customer')}</label>
+              <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                <option value="">{t('select_customer_ph')}</option>
+                {customers.filter((c) => c.status === 'approved').map((c) => (
+                  <option key={c.customerId} value={c.customerId}>
+                    {c.name} ({c.phone})
                   </option>
                 ))}
               </select>
-            )
-          ) : (
-            <p className="muted" style={{ fontSize: '0.82rem' }}>{t('select_customer_first')}</p>
+              {customers.filter((c) => c.status === 'approved').length === 0 ? (
+                <p className="muted" style={{ fontSize: '0.82rem' }}>
+                  {t('no_approved_customers')}
+                </p>
+              ) : null}
+              <label>{t('field')}</label>
+              {customerId ? (
+                fieldsLoading ? (
+                  <p className="muted" style={{ fontSize: '0.82rem' }}>{t('field_loading')}</p>
+                ) : fields.length === 0 ? (
+                  <p className="muted" style={{ fontSize: '0.82rem' }}>{t('mafarmer_no_fields')}</p>
+                ) : (
+                  <select value={fieldId} onChange={(e) => setFieldId(e.target.value)}>
+                    <option value="">{t('select_field_ph')}</option>
+                    {fields.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}{f.area ? ` (${f.area}${f.areaUnit ? f.areaUnit : ''})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )
+              ) : (
+                <p className="muted" style={{ fontSize: '0.82rem' }}>{t('select_customer_first')}</p>
+              )}
+            </>
           )}
+
           <label>{t('start_time_datetime')}</label>
           <input type="datetime-local" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} />
           <button type="submit" className="btn btn-primary btn-lg mt" disabled={submitting || !customerId || !fieldId || fields.length === 0}>

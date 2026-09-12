@@ -19,6 +19,8 @@ import { AdminModule } from './admin/admin.module';
 import { SyncModule } from './sync/sync.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { WaterModule } from './water/water.module';
+import { WaterRequestsModule } from './water-requests/water-requests.module';
+import { WaterQueueModule } from './water-queue/water-queue.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -52,6 +54,8 @@ import { HealthController } from './health.controller';
     SyncModule,
     UploadsModule,
     WaterModule,
+    WaterRequestsModule,
+    WaterQueueModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -12,6 +12,17 @@ import {
   WaterSession,
   WaterSessionDocument,
 } from './schemas/water-session.schema';
+import {
+  WaterQueueEntry,
+  WaterQueueEntryDocument,
+  QUEUE_STATUS,
+} from '../water-queue/schemas/water-queue.schema';
+import {
+  WaterRequest,
+  WaterRequestDocument,
+  WATER_REQUEST_STATUS,
+} from '../water-requests/schemas/water-request.schema';
+import { WaterQueueService } from '../water-queue/water-queue.service';
 import { BillingService } from './billing.service';
 import { TubewellsService } from '../tubewells/tubewells.service';
 import { FieldsService } from '../fields/fields.service';
@@ -43,6 +54,10 @@ export class SessionsService {
   constructor(
     @InjectModel(WaterSession.name)
     private readonly sessionModel: Model<WaterSessionDocument>,
+    @InjectModel(WaterQueueEntry.name)
+    private readonly queueModel: Model<WaterQueueEntryDocument>,
+    @InjectModel(WaterRequest.name)
+    private readonly requestModel: Model<WaterRequestDocument>,
     @InjectConnection() private readonly connection: Connection,
     private readonly billing: BillingService,
     private readonly tubewellsService: TubewellsService,
@@ -52,6 +67,7 @@ export class SessionsService {
     private readonly money: MoneyService,
     private readonly logsService: ActivityLogsService,
     private readonly notificationsService: NotificationsService,
+    private readonly waterQueueService: WaterQueueService,
     private readonly waterGateway: WaterGateway,
   ) {}
 
@@ -59,15 +75,55 @@ export class SessionsService {
     actorId: string,
     dto: {
       tubewellId: string;
-      customerId: string;
+      customerId?: string;
       fieldId?: string;
       cropId?: string;
       cropName?: string;
       startDatetime?: Date;
       idempotencyKey?: string;
+      waterRequestId?: string;
+      waterQueueEntryId?: string;
     },
   ): Promise<WaterSessionDocument> {
     const tubewell = await this.tubewellsService.ownerMustOwn(dto.tubewellId, actorId);
+
+    // Look for queue entry if available or if no customer is passed
+    let queueEntry: WaterQueueEntryDocument | null = null;
+    if (dto.waterQueueEntryId) {
+      queueEntry = await this.queueModel.findById(dto.waterQueueEntryId).exec();
+    } else if (dto.customerId && dto.fieldId) {
+      queueEntry = await this.queueModel
+        .findOne({
+          tubewellId: new Types.ObjectId(dto.tubewellId),
+          customerId: new Types.ObjectId(dto.customerId),
+          fieldId: new Types.ObjectId(dto.fieldId),
+          status: QUEUE_STATUS.WAITING,
+        })
+        .sort({ queuePosition: 1 })
+        .exec();
+    } else if (!dto.customerId) {
+      // Automatic queue selection: pick queue #1
+      queueEntry = await this.queueModel
+        .findOne({
+          tubewellId: new Types.ObjectId(dto.tubewellId),
+          status: QUEUE_STATUS.WAITING,
+        })
+        .sort({ queuePosition: 1 })
+        .exec();
+    }
+
+    if (queueEntry) {
+      dto.customerId = String(queueEntry.customerId);
+      dto.fieldId = String(queueEntry.fieldId);
+      dto.cropId = queueEntry.cropId ? String(queueEntry.cropId) : dto.cropId;
+      dto.cropName = queueEntry.cropName || dto.cropName;
+      dto.waterRequestId = String(queueEntry.waterRequestId);
+    }
+
+    if (!dto.customerId) {
+      throw new BadRequestException('Select a farmer or ensure there is a farmer waiting in the queue.');
+    }
+
     await this.tubewellsService.verifyApprovedMembership(dto.tubewellId, dto.customerId);
     if (!dto.fieldId) {
       throw new BadRequestException(
@@ -103,6 +159,8 @@ export class SessionsService {
                   ? new Types.ObjectId(dto.cropId)
                   : undefined,
               cropName: dto.cropName || undefined,
+              waterRequestId: dto.waterRequestId ? new Types.ObjectId(dto.waterRequestId) : undefined,
+              waterQueueEntryId: queueEntry ? queueEntry._id : undefined,
               startDatetime,
               status: SESSION_STATUS.RUNNING,
               ratePerHourPaise: tubewell.settings?.ratePerHourPaise ?? 0,
@@ -120,6 +178,15 @@ export class SessionsService {
         result = doc[0];
       });
       if (!result) throw new BadRequestException('Unable to start session');
+
+      if (queueEntry) {
+        queueEntry.status = QUEUE_STATUS.ACTIVE;
+        queueEntry.startedAt = startDatetime;
+        queueEntry.waterSessionId = (result as WaterSessionDocument)._id;
+        await queueEntry.save();
+        await this.waterQueueService.normalizeQueuePositions(dto.tubewellId);
+      }
+
       await this.logsService.create({
         userId: actorId,
         action: 'session_started',
@@ -138,6 +205,22 @@ export class SessionsService {
         startTime: startDatetime,
         ratePerHour: this.money.paiseToRupees(tubewell.settings?.ratePerHourPaise ?? 0),
       });
+
+      // Notify new top waiting farmer if any
+      const nextWaiting = await this.queueModel
+        .findOne({ tubewellId: new Types.ObjectId(dto.tubewellId), status: QUEUE_STATUS.WAITING })
+        .sort({ queuePosition: 1 })
+        .exec();
+      if (nextWaiting) {
+        void this.notificationsService.create({
+          userId: String(nextWaiting.customerId),
+          title: 'You Are Next!',
+          body: `You are next for water at ${tubewell.name}.`,
+          type: 'queue_next',
+          data: { type: 'queue_next', tubewell_id: dto.tubewellId },
+        });
+      }
+
       return result;
     } catch (err: any) {
       if (err?.code === 11000) {
@@ -203,6 +286,8 @@ export class SessionsService {
       totalAmount: this.money.paiseToRupees(billing.finalPaise),
       ratePerHour: this.money.paiseToRupees(session.ratePerHourPaise),
     });
+
+    await this.handleStopQueueAndNotifications(session, end, billing.durationMinutes, billing.finalPaise);
 
     return session;
   }
@@ -366,6 +451,9 @@ export class SessionsService {
         ratePerHour: this.money.paiseToRupees(session.ratePerHourPaise),
       });
     }
+
+    await this.handleStopQueueAndNotifications(session, end, billing.durationMinutes, billing.finalPaise);
+
     return session;
   }
 
@@ -873,5 +961,81 @@ export class SessionsService {
 
   async countApprovedCustomers(tubewellId: string): Promise<number> {
     return this.tubewellsService.countApprovedMemberships(tubewellId);
+  }
+
+  private async handleStopQueueAndNotifications(
+    session: WaterSessionDocument,
+    end: Date,
+    durationMinutes: number,
+    finalAmountPaise: number,
+  ): Promise<void> {
+    const tubewell = await this.tubewellsService.findById(String(session.tubewellId));
+    const tubewellName = tubewell?.name || 'Tubewell';
+    const field = session.fieldId
+      ? await this.fieldsService.findByIdForCustomer(String(session.customerId), String(session.fieldId))
+      : null;
+
+    // Find and complete active queue entry
+    const qEntry = await this.queueModel
+      .findOne({
+        $or: [
+          { waterSessionId: session._id },
+          ...(session.waterQueueEntryId ? [{ _id: session.waterQueueEntryId }] : []),
+          {
+            tubewellId: session.tubewellId,
+            customerId: session.customerId,
+            status: QUEUE_STATUS.ACTIVE,
+          },
+        ],
+      })
+      .exec();
+
+    if (qEntry) {
+      qEntry.status = QUEUE_STATUS.COMPLETED;
+      qEntry.completedAt = end;
+      await qEntry.save();
+
+      if (qEntry.waterRequestId) {
+        await this.requestModel
+          .updateOne(
+            { _id: qEntry.waterRequestId },
+            { status: WATER_REQUEST_STATUS.COMPLETED, completedAt: end },
+          )
+          .exec();
+      }
+
+      await this.waterQueueService.normalizeQueuePositions(String(session.tubewellId));
+    }
+
+    // Send mandatory Water Ended push notification
+    void this.notificationsService.create({
+      userId: String(session.customerId),
+      title: 'Water Session Ended',
+      body: `Your water session for ${field?.name || 'field'} has ended. Duration: ${durationMinutes} min, Amount: ₹${this.money.paiseToRupees(finalAmountPaise)}.`,
+      type: 'water_ended',
+      data: {
+        type: 'water_ended',
+        tubewell_id: String(session.tubewellId),
+        water_session_id: String(session._id),
+        field_id: session.fieldId ? String(session.fieldId) : '',
+        duration_minutes: String(durationMinutes),
+        amount: String(this.money.paiseToRupees(finalAmountPaise)),
+      },
+    });
+
+    // Notify new queue #1 farmer if any
+    const nextWaiting = await this.queueModel
+      .findOne({ tubewellId: session.tubewellId, status: QUEUE_STATUS.WAITING })
+      .sort({ queuePosition: 1 })
+      .exec();
+    if (nextWaiting) {
+      void this.notificationsService.create({
+        userId: String(nextWaiting.customerId),
+        title: 'You Are Next!',
+        body: `You are next for water at ${tubewellName}.`,
+        type: 'queue_next',
+        data: { type: 'queue_next', tubewell_id: String(session.tubewellId) },
+      });
+    }
   }
 }

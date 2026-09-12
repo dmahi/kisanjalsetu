@@ -13,6 +13,7 @@ import FarmerTubewellDetail from './screens/farmer/FarmerTubewellDetail';
 import FarmerMyTubewellDetail from './screens/farmer/FarmerMyTubewellDetail';
 import FarmerProfile from './screens/farmer/FarmerProfile';
 import BecomeOwner from './screens/farmer/BecomeOwner';
+import FarmerWaterRequests from './screens/farmer/FarmerWaterRequests';
 
 import OwnerDashboard from './screens/owner/OwnerDashboard';
 import OwnerCustomers from './screens/owner/OwnerCustomers';
@@ -21,6 +22,7 @@ import OwnerSessions from './screens/owner/OwnerSessions';
 import OwnerPayments from './screens/owner/OwnerPayments';
 import OwnerReports from './screens/owner/OwnerReports';
 import OwnerProfile from './screens/owner/OwnerProfile';
+import OwnerWaterQueue from './screens/owner/OwnerWaterQueue';
 
 import NotificationsScreen from './screens/shared/NotificationsScreen';
 
@@ -77,6 +79,7 @@ function FarmerRoutes() {
       <Route path="tubewells" element={<FarmerTubewells />} />
       <Route path="tubewells/:id" element={<FarmerTubewellDetail />} />
       <Route path="my-tubewells/:id" element={<FarmerMyTubewellDetail />} />
+      <Route path="requests" element={<FarmerWaterRequests />} />
       <Route path="sessions" element={<FarmerSessions />} />
       <Route path="payments" element={<FarmerPayments />} />
       <Route path="profile" element={<FarmerProfile />} />
@@ -91,6 +94,7 @@ function OwnerRoutes() {
   return (
     <Routes>
       <Route path="dashboard" element={<OwnerDashboard />} />
+      <Route path="queue" element={<OwnerWaterQueue />} />
       <Route path="customers" element={<OwnerCustomers />} />
       <Route path="customers/:customerId" element={<OwnerCustomerDetail />} />
       <Route path="sessions" element={<OwnerSessions />} />

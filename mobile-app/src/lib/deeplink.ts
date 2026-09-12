@@ -4,7 +4,7 @@
  */
 export function notificationRouteFor(type: string, role: string): string {
   const isOwner = role === 'tubewell_owner' || role === 'operator';
-  if (type === 'session_started' || type === 'session_stopped' || type === 'water_started' || type === 'water_stopped') {
+  if (type === 'session_started' || type === 'session_stopped' || type === 'water_started' || type === 'water_stopped' || type === 'water_ended') {
     return isOwner ? '/owner/sessions' : '/farmer/sessions';
   }
   if (type.startsWith('payment')) {
@@ -12,6 +12,12 @@ export function notificationRouteFor(type: string, role: string): string {
   }
   if (type === 'notification') {
     return isOwner ? '/owner/notifications' : '/farmer/notifications';
+  }
+  if (type === 'water_request_new') {
+    return isOwner ? '/owner/queue' : '/farmer/requests';
+  }
+  if (type === 'water_request_accepted' || type === 'water_request_rejected' || type === 'queue_position_changed' || type === 'queue_next' || type === 'queue_removed') {
+    return isOwner ? '/owner/queue' : '/farmer/requests';
   }
   return isOwner ? '/owner/dashboard' : '/farmer/home';
 }

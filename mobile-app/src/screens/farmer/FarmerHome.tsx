@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { paymentsApi, type DashboardTotals } from '../../api/payments';
 import { waterSessionApi, type WaterSession } from '../../api/sessions';
+import { waterRequestApi, type WaterRequest } from '../../api/requests';
 import { apiErrorMessage } from '../../api/client';
 import { Card, Stat, Spinner, EmptyState, PageHeader, useToast, Row, Pill } from '../../components/ui';
 import { formatINR, formatDuration, formatClock, formatDateTime } from '../../utils/formatters';
@@ -21,6 +22,7 @@ export default function FarmerHome() {
   const { tubewells } = useMyTubewells();
   const [dashboard, setDashboard] = useState<DashboardTotals | null>(null);
   const [sessions, setSessions] = useState<WaterSession[]>([]);
+  const [activeRequest, setActiveRequest] = useState<WaterRequest | null>(null);
   const [loading, setLoading] = useState(true);
 
   // local live counter for the customer-run session
@@ -38,14 +40,18 @@ export default function FarmerHome() {
     let cancelled = false;
     const load = async () => {
       try {
-        const [dash, sess] = await Promise.all([
+        const [dash, sess, reqs] = await Promise.all([
           paymentsApi.dashboard(farmerTubewellId),
           waterSessionApi.listForCustomer({ tubewellId: farmerTubewellId }),
+          waterRequestApi.listForCustomer(farmerTubewellId),
         ]);
         if (cancelled) return;
         setDashboard(dash);
         setSessions((sess || []).slice(0, 5));
         reconcileRunning(sess || []);
+
+        const pendingOrAccepted = (reqs || []).find((r) => r.status === 'pending' || r.status === 'accepted');
+        setActiveRequest(pendingOrAccepted || null);
       } catch (err) {
         if (!cancelled) show(apiErrorMessage(err), 'error');
       } finally {
@@ -173,6 +179,63 @@ export default function FarmerHome() {
           </div>
         </div>
       )}
+
+      {/* Water Request / Queue Widget */}
+      <div style={{ marginTop: 12 }}>
+        <Card>
+          {activeRequest ? (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>
+                    {activeRequest.fieldName || 'Field'}{activeRequest.cropName ? ` (${activeRequest.cropName})` : ''}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#555', marginTop: 2 }}>
+                    Requested: {Math.round(activeRequest.requestedDurationMinutes / 60 * 10) / 10} hours
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <Pill tone={activeRequest.status === 'accepted' ? 'paid' : 'pending'}>
+                    {activeRequest.status.toUpperCase()}
+                  </Pill>
+                  {activeRequest.status === 'accepted' && activeRequest.queuePosition != null ? (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        backgroundColor: '#e3f2fd',
+                        color: '#1565c0',
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                      }}
+                    >
+                      Queue #{activeRequest.queuePosition}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <button
+                className="btn btn-sm btn-ghost mt-sm"
+                style={{ width: '100%', marginTop: 10 }}
+                onClick={() => navigate('/farmer/requests')}
+              >
+                View All Requests →
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>Need Water for Irrigation?</div>
+                <div style={{ fontSize: '0.82rem', color: '#666' }}>Submit a request to the tubewell owner.</div>
+              </div>
+              <button className="btn btn-sm btn-primary" onClick={() => navigate('/farmer/requests')}>
+                + Request Water
+              </button>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {loading ? (
         <Spinner />
