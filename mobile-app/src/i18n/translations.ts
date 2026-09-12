@@ -1,4 +1,4 @@
-﻿export const LOCALES = {
+export const LOCALES = {
   en: {
     code: 'en',
     label: 'English',
@@ -6,6 +6,10 @@
   hi: {
     code: 'hi',
     label: 'हिंदी',
+  },
+  pa: {
+    code: 'pa',
+    label: 'ਪੰਜਾਬੀ',
   },
 } as const;
 
@@ -673,6 +677,41 @@ export const translations: Record<Locale, Dict> = {
     membership_pending_hint: 'स्वीकृति लंबित है। मालिक की स्वीकृति के बाद आप पानी का विवरण देख पाएंगे।',
     membership_not_approved_hint: 'आप इस ट्यूबवेल से जुड़े नहीं हैं।',
     membership_pending_title: 'स्वीकृति लंबित है',
+    listen: 'सुनिए 🔊',
+    listen_speech: 'स्थिति सुनने के लिए बटन दबाएं',
+    call_operator_btn: 'ट्यूबवेल ऑपरेटर को फोन करें 📞',
+  },
+  pa: {
+    app_name: 'ਕਿਸਾਨ ਜਲ ਸੇਤੂ',
+    tagline: 'ਟਿਊਬਵੈੱਲ ਪਾਣੀ ਅਤੇ ਬਿਲਿੰਗ ਆਸਾਨ',
+    language: 'ਭਾਸ਼ਾ',
+    save: 'ਸਾਂਭੋ',
+    saving: 'ਸਾਂਭ ਰਹੇ ਹਾਂ…',
+    cancel: 'ਰੱਦ ਕਰੋ',
+    submit: 'ਜਮ੍ਹਾਂ ਕਰੋ',
+    ok: 'ਠੀਕ ਹੈ',
+    edit: 'ਸੋਧੋ',
+    delete: 'ਹਟਾਓ',
+    loading: 'ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ…',
+    send_otp: 'ਓ.ਟੀ.ਪੀ ਭੇਜੋ',
+    sending: 'ਭੇਜ ਰਹੇ ਹਾਂ…',
+    verify_otp: 'ਓ.ਟੀ.ਪੀ ਦੀ ਜਾਂਚ ਕਰੋ',
+    verifying: 'ਜਾਂਚ ਕਰ ਰਹੇ ਹਾਂ…',
+    enter_phone: 'ਮੋਬਾਈਲ ਨੰਬਰ',
+    enter_phone_hint: 'ਆਪਣਾ 10 ਅੰਕਾਂ ਦਾ ਮੋਬਾਈਲ ਨੰਬਰ ਭਰੋ',
+    home: 'ਹੋਮ',
+    sessions: 'ਪਾਣੀ ਦੇ ਸੈਸ਼ਨ',
+    payments: 'ਭੁਗਤਾਨ',
+    tubewells: 'ਟਿਊਬਵੈੱਲ',
+    profile: 'ਪ੍ਰੋਫਾਈਲ',
+    my_tubewell: 'ਮੇਰਾ ਟਿਊਬਵੈੱਲ',
+    water_running_for_you: 'ਤੁਹਾਡੇ ਖੇਤ ਵਿੱਚ ਪਾਣੀ ਚੱਲ ਰਿਹਾ ਹੈ',
+    not_running: 'ਪਾਣੀ ਬੰਦ ਹੈ',
+    listen: 'ਸੁਣੋ 🔊',
+    listen_speech: 'ਸਥਿਤੀ ਸੁਣਨ ਲਈ ਬਟਨ ਦਬਾਓ',
+    call_operator_btn: 'ਟਿਊਬਵੈੱਲ ਆਪਰੇਟਰ ਨੂੰ ਕਾਲ ਕਰੋ 📞',
+    ready: 'ਤਿਆਰ ਹਾਂ 👍',
+    not_ready: 'ਤਿਆਰ ਨਹੀਂ ਹਾਂ ✋',
   },
 };
 

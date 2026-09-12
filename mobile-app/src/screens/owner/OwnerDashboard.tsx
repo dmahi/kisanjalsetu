@@ -15,6 +15,10 @@ import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, ModalSheet,
 import { formatINR, formatDuration, formatClock, toLocalInput } from '../../utils/formatters';
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
 
+import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
+import { VoiceSpeakerButton } from '../../components/VoiceSpeakerButton';
+import { LanguageSelectorPill } from '../../components/LanguageSelectorPill';
+
 export default function OwnerDashboard() {
   const navigate = useNavigate();
   const { show, toast } = useToast();
@@ -360,14 +364,23 @@ export default function OwnerDashboard() {
     ? Math.round((running.ratePerHourPaise * (elapsedMs / 3600000)))
     : 0;
 
+  const selectedTubewellObj = tubewells.find((t) => t.id === ownerTubewellId);
+
+  const ownerSpeechText = running
+    ? `${selectedTubewellObj?.name || 'ट्यूबवेल'}: पानी अभी चालू है। किसान: ${running.customerName || 'ग्राहक'}, समय: ${formatClock(elapsedMs)}, बिल: ${Math.round(currentBillPaise / 100)} रुपये।`
+    : `${selectedTubewellObj?.name || 'ट्यूबवेल'}: पानी बंद है। आज का संग्रह: ${Math.round((today?.totalCollectedPaise || 0) / 100)} रुपये।`;
+
   return (
     <div className="page">
       {toast}
       <PageHeader
         title={t('dashboard')}
-        subtitle={tubewells.find((t) => t.id === ownerTubewellId)?.name ?? ''}
+        subtitle={selectedTubewellObj?.name ?? ''}
         right={
-          <button className="btn btn-sm btn-ghost" onClick={() => navigate('/owner/reports')}>📈 {t('reports')}</button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button className="btn btn-sm btn-ghost" onClick={() => navigate('/owner/reports')}>📈 {t('reports')}</button>
+            <LanguageSelectorPill />
+          </div>
         }
       />
 
@@ -380,49 +393,46 @@ export default function OwnerDashboard() {
         </select>
       </Card>
 
+      {/* Voice Audio Speaker Assistance for Tubewell Operator */}
+      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+        <VoiceSpeakerButton textToSpeak={ownerSpeechText} />
+      </div>
+
       {loading ? <Spinner /> : (
         <>
-          {running ? (
-            <div className="counter mt">
-              <div className="counter-row">
-                <div>
-                  <div style={{ fontWeight: 800 }}>{running.customerName ?? t('customer')}</div>
-                  <div className="counter-label">{t('session_running')}</div>
-                </div>
-                <Pill tone="paid">{t('running').toUpperCase()}</Pill>
-              </div>
-              <div className="counter-clock">{formatClock(elapsedMs)}</div>
-              <div className="counter-label">{t('started_at', { time: new Date(running.startDatetime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) })}</div>
-              <div className="counter-row" style={{ alignItems: 'center' }}>
-                <div>
-                  <div className="counter-label">{t('current_bill')}</div>
-                  <div style={{ fontWeight: 800, fontSize: '1.25rem' }}>
-                    ≈ {formatINR(currentBillPaise)}
-                  </div>
-                </div>
-                <button className="btn btn-danger" onClick={() => void stopSession()} disabled={submitting} style={{ width: 'auto', padding: '12px 20px' }}>
-                  ⏹ {t('water_stop')}
-                </button>
-              </div>
-              {serverWarning ? (
-                <div style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.15)', padding: '10px 12px', borderRadius: 10, fontSize: '0.82rem', fontWeight: 600 }}>
-                  ⚠️ {serverWarning}
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="counter mt">
-              <div className="counter-row" style={{ alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: 800 }}>{t('no_running_session')}</div>
-                  <div className="counter-label">{t('start_water_hint')}</div>
-                </div>
-                <button className="btn btn-secondary" onClick={() => void handleOpenStartModal()} style={{ width: 'auto', padding: '12px 20px' }}>
-                  ▶ {t('water_start')}
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Animated Water Pump Card for Operator */}
+          <div className="mt">
+            <WaterPumpAnimation
+              isRunning={Boolean(running)}
+              tubewellName={selectedTubewellObj?.name}
+              customerName={running?.customerName ?? undefined}
+              elapsedTime={running ? formatClock(elapsedMs) : undefined}
+              currentBillAmount={running ? Math.round(currentBillPaise / 100) : undefined}
+            />
+          </div>
+
+          {/* Quick Water Start / Stop Huge Action Buttons */}
+          <div className="mt" style={{ display: 'flex', gap: 12 }}>
+            {running ? (
+              <button
+                className="btn-farmer-action btn-farmer-not-ready"
+                onClick={() => void stopSession()}
+                disabled={submitting}
+              >
+                <span>⏹</span>
+                <span>{submitting ? 'रोक रहे हैं…' : '⏹ STOP WATER · पानी बंद करें'}</span>
+              </button>
+            ) : (
+              <button
+                className="btn-farmer-action btn-farmer-ready"
+                onClick={() => void handleOpenStartModal()}
+                disabled={submitting}
+              >
+                <span>▶</span>
+                <span>{t('water_start') || '▶ START WATER · पानी चालू करें'}</span>
+              </button>
+            )}
+          </div>
 
           {today ? (
             <>

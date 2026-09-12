@@ -14,6 +14,9 @@ import { useLocale } from '../../store/locale.store';
 import { TubewellSwitcher } from './TubewellSwitcher';
 import { useMyTubewells } from './hooks';
 
+import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
+import { VoiceSpeakerButton } from '../../components/VoiceSpeakerButton';
+
 export default function FarmerHome() {
   const farmerTubewellId = useSelectionStore((s) => s.farmerTubewellId);
   const user = useAuthStore((s) => s.user);
@@ -98,19 +101,17 @@ export default function FarmerHome() {
 
   const reconcileRunning = async (list: WaterSession[]) => {
     const active = list.find((s) => s.status === 'running');
-    if (active) {
-      if (running?.id !== active.id) {
-        await setRunning({
-          id: active.id,
-          customerId: active.customerId,
-          customerName: user?.name ?? null,
-          startDatetime: active.startDatetime,
-          ratePerHourPaise: active.ratePerHourPaise,
-          tubewellId: farmerTubewellId ?? undefined,
-        });
-      }
-    } else if (running && (!farmerTubewellId || running.tubewellId === farmerTubewellId)) {
-      await setRunning(null);
+    if (active && (!running || running.id !== active.id)) {
+      void setRunning({
+        id: active.id,
+        customerId: active.customerId,
+        customerName: active.customerName || user?.name || 'Water',
+        startDatetime: active.startDatetime,
+        ratePerHourPaise: active.ratePerHourPaise,
+        tubewellId: farmerTubewellId || undefined,
+      });
+    } else if (!active && running) {
+      void setRunning(null);
     }
   };
 
@@ -142,6 +143,10 @@ export default function FarmerHome() {
           ? t('partially_paid')
           : t('pending');
 
+  const liveSpeechText = running
+    ? `${selectedTw?.name || 'ट्यूबवेल'}: पानी चालू है। समय: ${formatClock(elapsedMs)}, बिल: ${Math.round(currentBillPaise / 100)} रुपये।`
+    : `${selectedTw?.name || 'ट्यूबवेल'}: पानी अभी बंद है।`;
+
   return (
     <div className="page">
       {toast}
@@ -150,68 +155,39 @@ export default function FarmerHome() {
         <TubewellSwitcher />
       </Card>
 
+      {/* Voice Audio Speaker Assistance */}
+      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+        <VoiceSpeakerButton textToSpeak={liveSpeechText} />
+      </div>
+
+      {/* Water Turn Ringing Bell Alert Notification */}
       {liveAlert ? (
-        <div
-          className="mt"
-          style={{ backgroundColor: '#fff8e1', border: '1px solid #ffb300', borderRadius: 12, padding: 14 }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontWeight: 800, color: '#e65100', fontSize: '0.95rem' }}>
-                ⭐ Water Turn Alert
-              </div>
-              <div style={{ fontSize: '0.82rem', color: '#555', marginTop: 2 }}>
-                {liveAlert.tubewellName || 'Tubewell'} · {liveAlert.fieldName || 'Field'}
-                {liveAlert.responseDeadlineAt ? ` · answer by ${new Date(liveAlert.responseDeadlineAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}
-              </div>
-            </div>
-            <button className="btn btn-sm btn-primary" onClick={() => navigate('/farmer/water-turn')}>
-              Answer Now
+        <div className="turn-alert-card mt">
+          <div className="ringing-bell-icon">🔔</div>
+          <div style={{ fontWeight: 800, color: '#b45309', fontSize: '1.15rem', marginTop: 4 }}>
+            💧 पानी की बारी का अलर्ट! / Water Turn Alert!
+          </div>
+          <div style={{ fontSize: '0.9rem', color: '#444', marginTop: 4 }}>
+            {liveAlert.tubewellName || 'Tubewell'} · {liveAlert.fieldName || 'Field'}
+          </div>
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="btn btn-farmer-action btn-farmer-ready" onClick={() => navigate('/farmer/water-turn')}>
+              उत्तर दें · Answer Now →
             </button>
           </div>
         </div>
       ) : null}
 
-      {running ? (
-        <div className="counter mt">
-          <div className="counter-row">
-            <div>
-              <div style={{ fontWeight: 800 }}>{selectedTw?.name ?? t('running')}</div>
-              <div className="counter-label">{t('session_running')}</div>
-            </div>
-            <Pill tone="paid">{t('running').toUpperCase()}</Pill>
-          </div>
-          <div className="counter-clock">{formatClock(elapsedMs)}</div>
-          <div className="counter-label">{t('started_at', { time: new Date(running.startDatetime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) })}</div>
-          <div className="counter-row">
-            <div>
-              <div className="counter-label">{t('current_bill')}</div>
-              <div style={{ fontWeight: 800, fontSize: '1.25rem' }}>
-                ≈ {formatINR(currentBillPaise)}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="counter mt">
-          <div>
-            <div style={{ fontWeight: 800 }}>{selectedTw?.name ?? ''}</div>
-            <div className="counter-label">{t('no_running_session')}</div>
-            <div className="counter-label" >{t('owner_controls_water')}</div>
-            {(() => {
-              const last = sessions.find((s) => s.status === 'completed');
-              if (!last) return null;
-              const ended = last.endDatetime ? ` · ${new Date(last.endDatetime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : '';
-              return (
-                <div className="counter-label">
-                  {t('last_stopped', { time: ended })}
-                  {t('last_stopped_amount', { amount: formatINR(last.finalAmountPaise) })}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+      {/* Live Animated Tubewell Pump Card */}
+      <div className="mt">
+        <WaterPumpAnimation
+          isRunning={Boolean(running)}
+          tubewellName={selectedTw?.name}
+          customerName={running?.customerName ?? undefined}
+          elapsedTime={running ? formatClock(elapsedMs) : undefined}
+          currentBillAmount={running ? Math.round(currentBillPaise / 100) : undefined}
+        />
+      </div>
 
       {/* Water Request / Queue Widget */}
       <div style={{ marginTop: 12 }}>

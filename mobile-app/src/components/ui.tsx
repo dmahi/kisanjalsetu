@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LanguageSelectorPill } from './LanguageSelectorPill';
 
 interface Props {
   children: React.ReactNode;
@@ -23,7 +24,7 @@ export function PageHeader({
         <h1 className="page-title">{title}</h1>
         {subtitle ? <p className="page-sub">{subtitle}</p> : null}
       </div>
-      {right}
+      {right ?? <LanguageSelectorPill />}
     </div>
   );
 }

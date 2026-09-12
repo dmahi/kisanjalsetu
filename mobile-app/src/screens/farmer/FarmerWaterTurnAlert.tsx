@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { waterTurnAlertsApi, type WaterTurnAlert } from '../../api/waterTurnAlerts';
 import { apiErrorMessage } from '../../api/client';
 import { PageHeader, Card, Spinner, Pill, useToast } from '../../components/ui';
+import { VoiceSpeakerButton } from '../../components/VoiceSpeakerButton';
 
 const NOT_READY_REASONS = ['Finishing up', 'Not at the pump yet', 'Field not ready', 'Water not needed right now', 'Other'];
 
@@ -147,7 +148,7 @@ export default function FarmerWaterTurnAlert() {
               <div style={{ color: '#666', fontSize: '0.75rem', letterSpacing: 1 }}>TIME LEFT TO ANSWER</div>
               <div
                 style={{
-                  fontSize: '3rem',
+                  fontSize: '3.2rem',
                   fontWeight: 900,
                   fontVariantNumeric: 'tabular-nums',
                   color: deadlineMs <= 0 ? '#c62828' : '#1565c0',
@@ -155,9 +156,14 @@ export default function FarmerWaterTurnAlert() {
               >
                 {deadlineMs > 0 ? formatCountdown(deadlineMs) : '--:--'}
               </div>
-              <div style={{ fontSize: '0.82rem', color: '#555' }}>
+              <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: 10 }}>
                 Attempt {focused.attemptNumber} of {focused.maxAttempts}
               </div>
+
+              {/* Audio Voice Readout Speaker for Farmers */}
+              <VoiceSpeakerButton
+                textToSpeak={`पानी की बारी का अलर्ट! ${focused.tubewellName || ''}. आपका समय शेष: ${Math.max(0, Math.floor(deadlineMs / 60000))} मिनट। क्या आप तैयार हैं?`}
+              />
             </div>
 
             {(focused.status === 'sent' || focused.status === 'acknowledged') ? (
@@ -167,25 +173,27 @@ export default function FarmerWaterTurnAlert() {
                 </div>
               ) : (
                 <>
-                  <button
-                    className="btn btn-primary btn-lg mt"
-                    style={{ background: '#2e7d32', borderColor: '#2e7d32', fontSize: '1.05rem' }}
-                    disabled={responding !== null}
-                    onClick={() => void respond('ready')}
-                  >
-                    {responding === 'ready' ? 'Confirming…' : '✅ I AM READY'}
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-lg mt"
-                    style={{ width: '100%' }}
-                    disabled={responding !== null}
-                    onClick={() => setShowNotReady((v) => !v)}
-                  >
-                    {responding === 'not_ready' ? 'Submitting…' : '❌ NOT READY — Tell Owner Why'}
-                  </button>
+                  <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <button
+                      className="btn-farmer-action btn-farmer-ready"
+                      disabled={responding !== null}
+                      onClick={() => void respond('ready')}
+                    >
+                      <span>👍</span>
+                      <span>{responding === 'ready' ? 'पुष्टि की जा रही है…' : 'तैयार हूँ · I AM READY'}</span>
+                    </button>
+                    <button
+                      className="btn-farmer-action btn-farmer-not-ready"
+                      disabled={responding !== null}
+                      onClick={() => setShowNotReady((v) => !v)}
+                    >
+                      <span>✋</span>
+                      <span>{responding === 'not_ready' ? 'भेजा जा रहा है…' : 'तैयार नहीं हूँ · NOT READY'}</span>
+                    </button>
+                  </div>
                   {showNotReady ? (
                     <div style={{ marginTop: 14 }}>
-                      <label>Why aren't you ready?</label>
+                      <label>कारण चुनें / Choose Reason</label>
                       <select value={notReadyReason} onChange={(e) => setNotReadyReason(e.target.value)}>
                         {NOT_READY_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
