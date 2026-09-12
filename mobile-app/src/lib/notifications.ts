@@ -257,8 +257,13 @@ export async function deactivateDeviceToken(): Promise<void> {
 async function ensureNotificationChannel(): Promise<void> {
   if (!isCapacitorNative()) return;
   try {
-    // Channels must exist before FCM messages target them (Step 11). Creating
-    // is idempotent, so this is safe to run on every bootstrap.
+    // Delete existing alert channel to allow updating sound & importance settings
+    try {
+      await LocalNotifications.deleteChannel({ id: WATER_ALERT_CHANNEL_ID });
+    } catch {
+      /* ignore if non-existent */
+    }
+
     await LocalNotifications.createChannel({
       id: GENERAL_CHANNEL_ID,
       name: 'General',
@@ -266,6 +271,7 @@ async function ensureNotificationChannel(): Promise<void> {
       importance: 5,
       visibility: 1,
       sound: 'default',
+      vibration: true,
     });
     await LocalNotifications.createChannel({
       id: WATER_CHANNEL_ID,
@@ -274,6 +280,7 @@ async function ensureNotificationChannel(): Promise<void> {
       importance: 5,
       visibility: 1,
       sound: 'default',
+      vibration: true,
     });
     await LocalNotifications.createChannel({
       id: PAYMENTS_CHANNEL_ID,
@@ -282,14 +289,18 @@ async function ensureNotificationChannel(): Promise<void> {
       importance: 5,
       visibility: 1,
       sound: 'default',
+      vibration: true,
     });
     await LocalNotifications.createChannel({
       id: WATER_ALERT_CHANNEL_ID,
       name: 'Water turn alerts',
       description: 'Get ready / confirm READY or NOT READY for your water turn',
-      importance: 5,
-      visibility: 1,
-      sound: 'default',
+      importance: 5, // IMPORTANCE_MAX: Heads-up banner display
+      visibility: 1, // VISIBILITY_PUBLIC: Show full banner on lock screen
+      sound: 'incoming_call', // plays res/raw/incoming_call.wav
+      vibration: true,
+      lights: true,
+      lightColor: '#0284C7',
     });
   } catch (err) {
     console.warn('notification channel failed', err);
@@ -315,7 +326,7 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
             title: payload?.title ? String(payload.title) : 'KisanJalSetu',
             body: payload?.body ? String(payload.body) : '',
             channelId: isTurnAlert ? WATER_ALERT_CHANNEL_ID : GENERAL_CHANNEL_ID,
-            sound: 'default',
+            sound: isTurnAlert ? 'incoming_call' : 'default',
             smallIcon: 'ic_stat_water',
             extra: parsed,
           },
@@ -364,15 +375,17 @@ function safeParse(raw: string): Record<string, unknown> {
  *
  * Requires a Firebase project configured (google-services.json) on Android.
  * Without it, calling PushNotifications.register() crashes the native process
- * (Default FirebaseApp is not initialized), so the whole flow is gated behind
- * the VITE_FCM_PUSH flag and skipped by default.
+ * (Default FirebaseApp is not initialized), so FCM registration is gated behind
+ * the VITE_FCM_PUSH flag or skips gracefully if unavailable.
  */
 export async function initPushNotifications(): Promise<void> {
   if (!isCapacitorNative()) return;
+  // Always initialize high-priority notification channels (including call sound channel)
+  await ensureNotificationChannel();
+
   if (import.meta.env?.VITE_FCM_PUSH !== 'true') return;
   try {
     const ps = PushNotifications;
-    await ensureNotificationChannel();
     const status = await ps.checkPermissions();
     if (status.receive !== 'granted') {
       const req = await ps.requestPermissions();

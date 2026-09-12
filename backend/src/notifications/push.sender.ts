@@ -133,12 +133,16 @@ export class PushSender {
       data,
     };
     if (payload.channel || payload.sound || payload.priority || payload.tag) {
-      const androidNotification: Record<string, unknown> = {};
-      if (payload.channel) androidNotification.channel_id = payload.channel;
-      if (payload.sound) androidNotification.sound = payload.sound;
+      const androidNotification: Record<string, unknown> = {
+        channel_id: payload.channel || 'water_turn',
+        sound: payload.sound || (payload.priority === 'high' ? 'incoming_call' : 'default'),
+      };
       if (payload.priority === 'high') {
-        androidNotification.priority = 'PRIORITY_HIGH';
+        androidNotification.priority = 'PRIORITY_MAX';
         androidNotification.visibility = 'PUBLIC';
+        androidNotification.default_sound = false;
+        androidNotification.default_vibrate_timings = false;
+        androidNotification.vibrate_timings = ['0s', '0.5s', '0.5s', '1s'];
       }
       if (payload.tag) androidNotification.tag = payload.tag;
       const android: Record<string, unknown> = { notification: androidNotification };
@@ -192,12 +196,20 @@ export class PushSender {
   }
 
   private async sendLegacy(legacyKey: string, token: string, payload: PushPayload): Promise<FcmSendResult> {
+    const isHigh = payload.priority === 'high';
+    const soundName = payload.sound || (isHigh ? 'incoming_call' : 'default');
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
       headers: { Authorization: `key=${legacyKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to: token,
-        notification: { title: payload.title, body: payload.body || '', sound: 'default' },
+        priority: isHigh ? 'high' : 'normal',
+        notification: {
+          title: payload.title,
+          body: payload.body || '',
+          sound: soundName,
+          android_channel_id: payload.channel || 'water_turn',
+        },
         data: payload.data || {},
       }),
     });

@@ -44,15 +44,22 @@ export class NotificationsService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const saved = await this.notificationModel.create(doc as any);
 
+    const isUrgent =
+      input.priority === 'high' ||
+      (input.type && (input.type.startsWith('water_turn') || input.type.includes('urgent')));
+    const priority = isUrgent ? 'high' : input.priority;
+    const channel = input.channel || (isUrgent ? 'water_turn' : this.mapTypeToChannel(input.type));
+    const sound = input.sound || (isUrgent ? 'incoming_call' : 'default');
+
     // Fire-and-forget: push must never block the API response.
     this.fcmService
       .sendToUser(input.userId, {
         title: input.title,
         body: input.body,
         data: { type: input.type || 'info', ...(input.data || {}) },
-        channel: input.channel || this.mapTypeToChannel(input.type),
-        priority: input.priority,
-        sound: input.sound,
+        channel,
+        priority,
+        sound,
       })
       .catch(() => undefined);
 
