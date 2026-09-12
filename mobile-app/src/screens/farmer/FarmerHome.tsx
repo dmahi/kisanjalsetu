@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { paymentsApi, type DashboardTotals } from '../../api/payments';
 import { waterSessionApi, type WaterSession } from '../../api/sessions';
 import { waterRequestApi, type WaterRequest } from '../../api/requests';
+import { waterTurnAlertsApi, type WaterTurnAlert } from '../../api/waterTurnAlerts';
 import { apiErrorMessage } from '../../api/client';
 import { Card, Stat, Spinner, EmptyState, PageHeader, useToast, Row, Pill } from '../../components/ui';
 import { formatINR, formatDuration, formatClock, formatDateTime } from '../../utils/formatters';
@@ -23,6 +24,7 @@ export default function FarmerHome() {
   const [dashboard, setDashboard] = useState<DashboardTotals | null>(null);
   const [sessions, setSessions] = useState<WaterSession[]>([]);
   const [activeRequest, setActiveRequest] = useState<WaterRequest | null>(null);
+  const [liveAlert, setLiveAlert] = useState<WaterTurnAlert | null>(null);
   const [loading, setLoading] = useState(true);
 
   // local live counter for the customer-run session
@@ -52,6 +54,11 @@ export default function FarmerHome() {
 
         const pendingOrAccepted = (reqs || []).find((r) => r.status === 'pending' || r.status === 'accepted');
         setActiveRequest(pendingOrAccepted || null);
+
+        const turnAlerts = await waterTurnAlertsApi.listForFarmer(farmerTubewellId).catch(() => []);
+        if (cancelled) return;
+        const activeTurn = (turnAlerts || []).find((a) => a.status === 'sent' || a.status === 'acknowledged');
+        setLiveAlert(activeTurn || null);
       } catch (err) {
         if (!cancelled) show(apiErrorMessage(err), 'error');
       } finally {
@@ -74,6 +81,10 @@ export default function FarmerHome() {
         if (!live) return;
         setSessions((sess || []).slice(0, 5));
         reconcileRunning(sess || []);
+        const turnAlerts = await waterTurnAlertsApi.listForFarmer(farmerTubewellId).catch(() => []);
+        if (!live) return;
+        const activeTurn = (turnAlerts || []).find((a) => a.status === 'sent' || a.status === 'acknowledged');
+        setLiveAlert(activeTurn || null);
       } catch {
         /* keep local counter */
       }
@@ -138,6 +149,28 @@ export default function FarmerHome() {
       <Card>
         <TubewellSwitcher />
       </Card>
+
+      {liveAlert ? (
+        <div
+          className="mt"
+          style={{ backgroundColor: '#fff8e1', border: '1px solid #ffb300', borderRadius: 12, padding: 14 }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 800, color: '#e65100', fontSize: '0.95rem' }}>
+                ⭐ Water Turn Alert
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#555', marginTop: 2 }}>
+                {liveAlert.tubewellName || 'Tubewell'} · {liveAlert.fieldName || 'Field'}
+                {liveAlert.responseDeadlineAt ? ` · answer by ${new Date(liveAlert.responseDeadlineAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}
+              </div>
+            </div>
+            <button className="btn btn-sm btn-primary" onClick={() => navigate('/farmer/water-turn')}>
+              Answer Now
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {running ? (
         <div className="counter mt">

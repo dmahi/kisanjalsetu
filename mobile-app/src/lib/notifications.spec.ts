@@ -18,6 +18,15 @@ describe('notificationRouteFor (deep-link mapping)', () => {
     expect(notificationRouteFor('queue_removed', 'farmer')).toBe('/farmer/requests');
   });
 
+  it('routes water-turn alerts to the dedicated farmer alert screen / owner queue', () => {
+    expect(notificationRouteFor('water_turn_alert', 'farmer')).toBe('/farmer/water-turn');
+    expect(notificationRouteFor('water_turn_alert_retry', 'farmer')).toBe('/farmer/water-turn');
+    expect(notificationRouteFor('water_turn_delayed', 'farmer')).toBe('/farmer/water-turn');
+    expect(notificationRouteFor('water_turn_ready', 'farmer')).toBe('/farmer/water-turn');
+    expect(notificationRouteFor('water_turn_alert', 'tubewell_owner')).toBe('/owner/queue');
+    expect(notificationRouteFor('water_turn_no_response', 'tubewell_owner')).toBe('/owner/queue');
+  });
+
   it('routes payment events to payments screens', () => {
     expect(notificationRouteFor('payment_request', 'tubewell_owner')).toBe('/owner/payments');
     expect(notificationRouteFor('payment_approved', 'farmer')).toBe('/farmer/payments');

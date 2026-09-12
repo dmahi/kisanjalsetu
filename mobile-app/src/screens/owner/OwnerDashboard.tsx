@@ -5,6 +5,7 @@ import { tubewellApi, type Tubewell } from '../../api/tubewells';
 import { waterSessionApi } from '../../api/sessions';
 import { ownerCustomerApi, type CustomerSummary } from '../../api/tubewells';
 import { waterQueueApi, type WaterQueueEntry } from '../../api/queue';
+import { waterTurnAlertsApi, type NextForTubewell } from '../../api/waterTurnAlerts';
 import type { Field } from '../../api/common';
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
@@ -42,6 +43,15 @@ export default function OwnerDashboard() {
   const [waitingQueue, setWaitingQueue] = useState<WaterQueueEntry[]>([]);
   const [manualOverride, setManualOverride] = useState(false);
   const [selectedQueueEntry, setSelectedQueueEntry] = useState<WaterQueueEntry | null>(null);
+
+  // Water-turn alert state (next farmer + live alert)
+  const [turnInfo, setTurnInfo] = useState<NextForTubewell | null>(null);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [estimateMinutes, setEstimateMinutes] = useState('10');
+  const [customMinutes, setCustomMinutes] = useState('60');
+  const [sendingAlert, setSendingAlert] = useState(false);
+  const [actingAlertId, setActingAlertId] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
 
   // Load my tubewells once
   useEffect(() => {
@@ -83,6 +93,9 @@ export default function OwnerDashboard() {
         } else if (running) {
           void setRunning(null);
         }
+
+        const turn = await waterTurnAlertsApi.next(ownerTubewellId).catch(() => null);
+        if (!cancelled) setTurnInfo(turn);
       } catch (err) {
         if (!cancelled) show(apiErrorMessage(err), 'error');
       } finally {
@@ -233,6 +246,85 @@ export default function OwnerDashboard() {
     }
   };
 
+  // Keep the alert countdown ticking locally (payload refreshes every 30s).
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const refreshTurn = async () => {
+    if (!ownerTubewellId) return;
+    try {
+      setTurnInfo(await waterTurnAlertsApi.next(ownerTubewellId));
+    } catch {
+      /* keep last known */
+    }
+  };
+
+  const handleNotifyNext = async () => {
+    if (!ownerTubewellId) return;
+    setSendingAlert(true);
+    try {
+      const estimatedRemainingMinutes =
+        estimateMinutes === 'custom' ? Math.max(1, Math.min(1440, Number(customMinutes) || 60)) : Number(estimateMinutes);
+      await waterTurnAlertsApi.create({ tubewellId: ownerTubewellId, estimatedRemainingMinutes });
+      show('Alert sent — the farmer must answer within 5 minutes', 'success');
+      setNotifyOpen(false);
+      void refreshTurn();
+    } catch (err) {
+      show(apiErrorMessage(err), 'error');
+    } finally {
+      setSendingAlert(false);
+    }
+  };
+
+  const handleAlertRetry = async (id: string) => {
+    setActingAlertId(id);
+    try {
+      await waterTurnAlertsApi.retry(id);
+      show('Alert sent again to the farmer', 'success');
+      void refreshTurn();
+    } catch (err) {
+      show(apiErrorMessage(err), 'error');
+    } finally {
+      setActingAlertId(null);
+    }
+  };
+
+  const handleAlertCancel = async (id: string) => {
+    setActingAlertId(id);
+    try {
+      await waterTurnAlertsApi.cancel(id);
+      show('Alert cancelled', 'success');
+      void refreshTurn();
+    } catch (err) {
+      show(apiErrorMessage(err), 'error');
+    } finally {
+      setActingAlertId(null);
+    }
+  };
+
+  const activeAlert = turnInfo?.alert;
+  const nextFarmer = turnInfo?.next;
+
+  const alertStatusText = () => {
+    if (!activeAlert) return null;
+    if (activeAlert.status === 'sent' || activeAlert.status === 'acknowledged') {
+      const diff = new Date(activeAlert.responseDeadlineAt || 0).getTime() - nowTick;
+      if (diff <= 0) return 'Expired — checking…';
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      return `Answer in ${m}:${s.toString().padStart(2, '0')}`;
+    }
+    return {
+      ready: 'Farmer is READY ✅',
+      not_ready: 'Farmer is NOT READY ❌',
+      no_response: 'No response ⚠️',
+      cancelled: 'Cancelled',
+      pending: 'In progress…',
+    }[activeAlert.status] || activeAlert.status;
+  };
+
   if (!ownerTubewellId) {
     return (
       <div className="page">
@@ -347,6 +439,70 @@ export default function OwnerDashboard() {
         </>
       )}
 
+      {/* Next Farmer / Water Turn Alert panel */}
+      {nextFarmer ? (
+        <div className="mt">
+        <Card title="Next Farmer">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1rem' }}>{nextFarmer.customerName || 'Farmer'}</div>
+              <div style={{ fontSize: '0.85rem', color: '#555', marginTop: 2 }}>
+                {nextFarmer.fieldName ? `Field: ${nextFarmer.fieldName}` : ''}
+                {nextFarmer.cropName ? ` (${nextFarmer.cropName})` : ''}
+              </div>
+            </div>
+            <Pill tone="info">QUEUE #{nextFarmer.queuePosition}</Pill>
+          </div>
+
+          {activeAlert ? (
+            <div style={{ marginTop: 12, backgroundColor: '#fff8e1', border: '1px solid #ffb300', borderRadius: 10, padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#e65100' }}>
+                  🚨 {activeAlert.status.toUpperCase().replace('_', ' ')}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                  Attempt {activeAlert.attemptNumber}/{activeAlert.maxAttempts}
+                </div>
+              </div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#333', marginTop: 4 }}>{alertStatusText()}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                {activeAlert.status === 'not_ready' || activeAlert.status === 'no_response' ? (
+                  <button
+                    className="btn btn-sm btn-secondary"
+                    disabled={actingAlertId === activeAlert.id}
+                    onClick={() => void handleAlertRetry(activeAlert.id)}
+                  >
+                    🔔 Alert Again
+                  </button>
+                ) : null}
+                {activeAlert.status === 'sent' || activeAlert.status === 'acknowledged' ? (
+                  <button
+                    className="btn btn-sm btn-ghost"
+                    disabled={actingAlertId === activeAlert.id}
+                    onClick={() => void handleAlertCancel(activeAlert.id)}
+                  >
+                    Cancel Alert
+                  </button>
+                ) : null}
+                <button className="btn btn-sm btn-primary" onClick={() => void handleOpenStartModal()}>
+                  ▶ Start Water
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}>
+              <button className="btn btn-sm btn-secondary" onClick={() => setNotifyOpen(true)}>
+                📣 Notify Next Farmer
+              </button>
+              <button className="btn btn-sm btn-primary" onClick={() => void handleOpenStartModal()}>
+                ▶ Start Water
+              </button>
+            </div>
+          )}
+        </Card>
+        </div>
+      ) : null}
+
       {/* Start water sheet */}
       <ModalSheet open={creditOpen} onClose={() => setCreditOpen(false)} title={t('water_start')}>
         <form onSubmit={startSession}>
@@ -440,6 +596,70 @@ export default function OwnerDashboard() {
             {submitting ? t('start_synced') : t('water_start')}
           </button>
         </form>
+      </ModalSheet>
+
+      {/* Notify Next Farmer sheet */}
+      <ModalSheet open={notifyOpen} onClose={() => setNotifyOpen(false)} title="Notify Next Farmer">
+        {nextFarmer ? (
+          <div style={{ backgroundColor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontWeight: 800, color: '#1565c0', fontSize: '0.85rem' }}>
+              NEXT IN QUEUE (#{nextFarmer.queuePosition})
+            </div>
+            <div style={{ fontWeight: 800, fontSize: '1.05rem', marginTop: 4 }}>
+              {nextFarmer.customerName || 'Farmer'}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#333', marginTop: 2 }}>
+              Field: <b>{nextFarmer.fieldName || 'Field'}</b>{nextFarmer.cropName ? ` (${nextFarmer.cropName})` : ''}
+            </div>
+          </div>
+        ) : (
+          <p className="muted" style={{ fontSize: '0.85rem' }}>No farmer is waiting in the queue.</p>
+        )}
+
+        <label>Estimated time until this farmer's turn (approx.)</label>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+          {['5', '10', '15', '20', '30'].map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={`btn btn-sm ${estimateMinutes === m ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setEstimateMinutes(m)}
+            >
+              {m} min
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`btn btn-sm ${estimateMinutes === 'custom' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setEstimateMinutes('custom')}
+          >
+            Custom
+          </button>
+        </div>
+        {estimateMinutes === 'custom' ? (
+          <input
+            type="number"
+            min={1}
+            max={1440}
+            value={customMinutes}
+            onChange={(e) => setCustomMinutes(e.target.value)}
+            placeholder="Minutes"
+          />
+        ) : null}
+
+        <p className="muted mt" style={{ fontSize: '0.82rem' }}>
+          The farmer will receive a high-priority alert and must answer READY or NOT READY within 5 minutes.
+          {activeAlert ? ' An alert is already active for this farmer.' : ''}
+        </p>
+
+        <button
+          type="button"
+          className="btn btn-primary btn-lg mt"
+          disabled={sendingAlert || !nextFarmer}
+          onClick={() => void handleNotifyNext()}
+        >
+          {sendingAlert ? 'Sending…' : '📣 Send Alert'}
+        </button>
       </ModalSheet>
     </div>
   );

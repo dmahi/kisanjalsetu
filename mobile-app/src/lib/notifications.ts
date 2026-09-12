@@ -21,6 +21,8 @@ const DEVICE_ID_KEY = 'waterapp.device_id';
 export const GENERAL_CHANNEL_ID = 'general';
 export const WATER_CHANNEL_ID = 'water';
 export const PAYMENTS_CHANNEL_ID = 'payments';
+/** High-importance alert channel used for water-turn READY/NOT_READY prompts. */
+export const WATER_ALERT_CHANNEL_ID = 'water_turn';
 
 export interface RunningSessionCached {
   id: string;
@@ -281,6 +283,14 @@ async function ensureNotificationChannel(): Promise<void> {
       visibility: 1,
       sound: 'default',
     });
+    await LocalNotifications.createChannel({
+      id: WATER_ALERT_CHANNEL_ID,
+      name: 'Water turn alerts',
+      description: 'Get ready / confirm READY or NOT READY for your water turn',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+    });
   } catch (err) {
     console.warn('notification channel failed', err);
   }
@@ -293,6 +303,8 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
     typeof raw === 'string'
       ? safeParse(raw)
       : (raw as Record<string, unknown> | undefined) ?? {};
+  const type = typeof parsed?.type === 'string' ? parsed.type : '';
+  const isTurnAlert = type.startsWith('water_turn');
   void (async () => {
     if (!(await ensurePermissions())) return;
     try {
@@ -302,7 +314,7 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
             id: Math.floor(Date.now() / 1000) % 2147483647,
             title: payload?.title ? String(payload.title) : 'KisanJalSetu',
             body: payload?.body ? String(payload.body) : '',
-            channelId: GENERAL_CHANNEL_ID,
+            channelId: isTurnAlert ? WATER_ALERT_CHANNEL_ID : GENERAL_CHANNEL_ID,
             sound: 'default',
             smallIcon: 'ic_stat_water',
             extra: parsed,

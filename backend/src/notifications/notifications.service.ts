@@ -13,6 +13,12 @@ export interface NotificationInput {
   body?: string;
   type?: string;
   data?: Record<string, unknown>;
+  /** Android notification channel id (defaults to type-based mapping). */
+  channel?: string;
+  /** FCM priority used for time-sensitive pushes (e.g. water-turn alerts). */
+  priority?: 'high' | 'normal';
+  /** Custom notification sound on Android. */
+  sound?: string;
 }
 
 /**
@@ -44,7 +50,9 @@ export class NotificationsService {
         title: input.title,
         body: input.body,
         data: { type: input.type || 'info', ...(input.data || {}) },
-        channel: this.mapTypeToChannel(input.type),
+        channel: input.channel || this.mapTypeToChannel(input.type),
+        priority: input.priority,
+        sound: input.sound,
       })
       .catch(() => undefined);
 

@@ -8,6 +8,12 @@ export interface PushPayload {
   data?: Record<string, unknown>;
   /** Android notification channel id (must already exist client-side). */
   channel?: string;
+  /** FCM priority — 'high' for time-sensitive alerts (heads-up display). */
+  priority?: 'high' | 'normal';
+  /** Custom notification sound on Android (file name or default). */
+  sound?: string;
+  /** Group tag so consecutive alerts replace each other on Android. */
+  tag?: string;
 }
 
 export interface FcmSendResult {
@@ -126,8 +132,18 @@ export class PushSender {
       notification: { title: payload.title, body: payload.body || '' },
       data,
     };
-    if (payload.channel) {
-      message.android = { notification: { channel_id: payload.channel } };
+    if (payload.channel || payload.sound || payload.priority || payload.tag) {
+      const androidNotification: Record<string, unknown> = {};
+      if (payload.channel) androidNotification.channel_id = payload.channel;
+      if (payload.sound) androidNotification.sound = payload.sound;
+      if (payload.priority === 'high') {
+        androidNotification.priority = 'PRIORITY_HIGH';
+        androidNotification.visibility = 'PUBLIC';
+      }
+      if (payload.tag) androidNotification.tag = payload.tag;
+      const android: Record<string, unknown> = { notification: androidNotification };
+      if (payload.priority === 'high') android.priority = 'high';
+      message.android = android;
     }
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
       method: 'POST',

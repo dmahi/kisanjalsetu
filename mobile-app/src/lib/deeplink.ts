@@ -19,6 +19,9 @@ export function notificationRouteFor(type: string, role: string): string {
   if (type === 'water_request_accepted' || type === 'water_request_rejected' || type === 'queue_position_changed' || type === 'queue_next' || type === 'queue_removed') {
     return isOwner ? '/owner/queue' : '/farmer/requests';
   }
+  if (type.startsWith('water_turn')) {
+    return isOwner ? '/owner/queue' : '/farmer/water-turn';
+  }
   return isOwner ? '/owner/dashboard' : '/farmer/home';
 }
 

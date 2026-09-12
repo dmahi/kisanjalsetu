@@ -14,6 +14,7 @@ import FarmerMyTubewellDetail from './screens/farmer/FarmerMyTubewellDetail';
 import FarmerProfile from './screens/farmer/FarmerProfile';
 import BecomeOwner from './screens/farmer/BecomeOwner';
 import FarmerWaterRequests from './screens/farmer/FarmerWaterRequests';
+import FarmerWaterTurnAlert from './screens/farmer/FarmerWaterTurnAlert';
 
 import OwnerDashboard from './screens/owner/OwnerDashboard';
 import OwnerCustomers from './screens/owner/OwnerCustomers';
@@ -80,6 +81,7 @@ function FarmerRoutes() {
       <Route path="tubewells/:id" element={<FarmerTubewellDetail />} />
       <Route path="my-tubewells/:id" element={<FarmerMyTubewellDetail />} />
       <Route path="requests" element={<FarmerWaterRequests />} />
+      <Route path="water-turn" element={<FarmerWaterTurnAlert />} />
       <Route path="sessions" element={<FarmerSessions />} />
       <Route path="payments" element={<FarmerPayments />} />
       <Route path="profile" element={<FarmerProfile />} />
