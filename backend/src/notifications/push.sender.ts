@@ -35,36 +35,51 @@ const PERMANENT_LEGACY_ERRORS = new Set([
   'InvalidToken',
 ]);
 
+import { SettingsService } from '../settings/settings.service';
+
 @Injectable()
 export class PushSender {
   private readonly logger = new Logger('PushSender');
-  private readonly serviceAccountRaw = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT', '');
-  private readonly legacyKey = this.config.get<string>('FIREBASE_SERVER_KEY', '');
   private warned = false;
-  private cachedServiceAccount: ServiceAccount | null | undefined;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly settingsService: SettingsService,
+  ) {}
 
-  get enabled(): boolean {
-    return Boolean(this.serviceAccountRaw || this.legacyKey);
-  }
-
-  private get serviceAccount(): ServiceAccount | null {
-    if (this.cachedServiceAccount !== undefined) return this.cachedServiceAccount;
+  private async getFcmCredentials(): Promise<{ serviceAccount: ServiceAccount | null; legacyKey: string }> {
+    let serviceAccountRaw = '';
+    let legacyKey = '';
     try {
-      this.cachedServiceAccount = JSON.parse(this.serviceAccountRaw) as ServiceAccount;
+      const dbSettings = await this.settingsService.getSettings();
+      serviceAccountRaw = dbSettings.firebaseServiceAccount || '';
+      legacyKey = dbSettings.firebaseServerKey || '';
     } catch {
-      this.cachedServiceAccount = null;
+      /* fallback to env vars */
     }
 
-    // Fallback: individual FIREBASE_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY
-    // (avoids multiline JSON in the environment; Render supports both styles).
-    if (!this.cachedServiceAccount) {
+    if (!serviceAccountRaw) {
+      serviceAccountRaw = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT', '');
+    }
+    if (!legacyKey) {
+      legacyKey = this.config.get<string>('FIREBASE_SERVER_KEY', '');
+    }
+
+    let serviceAccount: ServiceAccount | null = null;
+    if (serviceAccountRaw) {
+      try {
+        serviceAccount = JSON.parse(serviceAccountRaw) as ServiceAccount;
+      } catch {
+        serviceAccount = null;
+      }
+    }
+
+    if (!serviceAccount) {
       const projectId = this.config.get<string>('FIREBASE_PROJECT_ID', '');
       const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL', '');
       const privateKey = this.config.get<string>('FIREBASE_PRIVATE_KEY', '');
       if (projectId && clientEmail && privateKey) {
-        this.cachedServiceAccount = {
+        serviceAccount = {
           type: 'service_account',
           project_id: projectId,
           private_key_id: '',
@@ -75,22 +90,24 @@ export class PushSender {
         };
       }
     }
-    return this.cachedServiceAccount;
+
+    return { serviceAccount, legacyKey };
   }
 
   async send(token: string, payload: PushPayload): Promise<FcmSendResult> {
-    if (!this.enabled) {
+    const { serviceAccount, legacyKey } = await this.getFcmCredentials();
+    if (!serviceAccount && !legacyKey) {
       if (!this.warned) {
         this.warned = true;
         this.logger.warn(
-          'FCM not configured (set FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVER_KEY); push disabled',
+          'FCM not configured (set FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVER_KEY in Settings or env); push disabled',
         );
       }
       return { ok: false, permanent: false, error: 'FCM not configured' };
     }
     try {
-      if (this.serviceAccount) return await this.sendV1(this.serviceAccount, token, payload);
-      return await this.sendLegacy(token, payload);
+      if (serviceAccount) return await this.sendV1(serviceAccount, token, payload);
+      return await this.sendLegacy(legacyKey, token, payload);
     } catch (err) {
       const msg = (err as Error).message;
       this.logger.error(`FCM push error: ${msg}`);
@@ -158,10 +175,10 @@ export class PushSender {
     return json.access_token;
   }
 
-  private async sendLegacy(token: string, payload: PushPayload): Promise<FcmSendResult> {
+  private async sendLegacy(legacyKey: string, token: string, payload: PushPayload): Promise<FcmSendResult> {
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
-      headers: { Authorization: `key=${this.legacyKey}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `key=${legacyKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to: token,
         notification: { title: payload.title, body: payload.body || '', sound: 'default' },

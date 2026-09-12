@@ -12,12 +12,15 @@ import { PushSender } from './push.sender';
 import { NotificationsController } from './notifications.controller';
 import { FcmController } from './fcm.controller';
 
+import { SettingsModule } from '../settings/settings.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
       { name: DeviceToken.name, schema: DeviceTokenSchema },
     ]),
+    SettingsModule,
   ],
   providers: [NotificationsService, FcmService, PushSender],
   exports: [NotificationsService, FcmService],

@@ -22,17 +22,26 @@ export interface Envelope<T = unknown> {
 
 export async function api<T>(config: AxiosRequestConfig): Promise<T> {
   const token = getToken();
-  const res = await axios.request<Envelope<T>>({
-    ...config,
-    baseURL: API_BASE_URL,
-    timeout: 20000,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(config.headers || {}),
-    },
-  });
-  return res.data.data;
+  try {
+    const res = await axios.request<Envelope<T>>({
+      ...config,
+      baseURL: API_BASE_URL,
+      timeout: 20000,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(config.headers || {}),
+      },
+    });
+    return res.data.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      setToken(null);
+      localStorage.removeItem('waterapp.admin_user');
+      window.dispatchEvent(new Event('auth:unauthorized'));
+    }
+    throw err;
+  }
 }
 
 export function errMsg(error: unknown, fallback = 'Request failed'): string {
@@ -44,8 +53,10 @@ export function errMsg(error: unknown, fallback = 'Request failed'): string {
 
 export interface AuthUser {
   id: string;
+  appName: string;
   name: string;
   phone: string;
+  email?: string | null;
   role: string;
 }
 
@@ -53,6 +64,27 @@ export const authApi = {
   sendOtp: (phone: string) => api<{ message: string }>({ url: '/auth/send-otp', method: 'POST', data: { phone } }),
   verifyOtp: (phone: string, code: string, role: 'admin', name?: string) =>
     api<{ token: string; user: AuthUser }>({ url: '/auth/verify-otp', method: 'POST', data: { phone, code, role, name } }),
+};
+
+export const usersApi = {
+  getMe: () => api<AuthUser>({ url: '/users/me', method: 'GET' }),
+  updateMe: (data: { appName?: string; name?: string; email?: string; password?: string }) =>
+    api<AuthUser>({ url: '/users/me', method: 'PATCH', data }),
+};
+
+export interface SystemSettings {
+  appName: string;
+  firebaseServiceAccount: string;
+  firebaseServerKey: string;
+  updatedBy?: string | null;
+  updatedAt?: string;
+}
+
+export const systemSettingsApi = {
+  getPublicSettings: () => api<{ appName: string }>({ url: '/settings/public', method: 'GET' }),
+  getAdminSettings: () => api<SystemSettings>({ url: '/admin/settings', method: 'GET' }),
+  updateAdminSettings: (data: { appName?: string; firebaseServiceAccount?: string; firebaseServerKey?: string }) =>
+    api<SystemSettings>({ url: '/admin/settings', method: 'PATCH', data }),
 };
 
 export interface AdminStats {
@@ -69,6 +101,7 @@ export interface AdminStats {
 
 export interface AdminUser {
   id: string;
+  appName: string;
   name: string;
   phone: string;
   email?: string | null;

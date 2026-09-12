@@ -19,6 +19,7 @@ export class UsersController {
     return {
       id: String(doc._id),
       name: doc.name,
+      appName: doc.appName || null,
       phone: doc.phone,
       email: doc.email || null,
       role: doc.role,
@@ -34,6 +35,7 @@ export class UsersController {
     return {
       id: String(doc._id),
       name: doc.name,
+      appName: doc.appName || null,
       phone: doc.phone,
       email: doc.email || null,
       role: doc.role,

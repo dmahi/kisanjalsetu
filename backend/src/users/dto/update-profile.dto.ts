@@ -5,6 +5,12 @@ export class UpdateProfileDto {
   @IsString()
   @MinLength(2)
   @MaxLength(100)
+  appName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   name?: string;
 
   @IsOptional()
@@ -14,4 +20,9 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   profileImage?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
 }

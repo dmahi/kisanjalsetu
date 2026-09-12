@@ -9,6 +9,9 @@ export class User {
   @Prop({ required: true, trim: true })
   name: string;
 
+  @Prop({ trim: true })
+  appName?: string;
+
   @Prop({ required: true, unique: true, index: true, trim: true })
   phone: string;
 

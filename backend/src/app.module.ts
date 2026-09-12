@@ -21,6 +21,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { WaterModule } from './water/water.module';
 import { WaterRequestsModule } from './water-requests/water-requests.module';
 import { WaterQueueModule } from './water-queue/water-queue.module';
+import { SettingsModule } from './settings/settings.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -54,6 +55,7 @@ import { HealthController } from './health.controller';
     SyncModule,
     UploadsModule,
     WaterModule,
+    SettingsModule,
     WaterRequestsModule,
     WaterQueueModule,
   ],

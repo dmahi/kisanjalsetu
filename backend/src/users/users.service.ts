@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { hash } from 'bcryptjs';
 import { User, UserDocument } from './schemas/user.schema';
 import { Role, USER_STATUS } from '../common/constants';
 
@@ -36,8 +37,13 @@ export class UsersService {
     });
   }
 
-  async updateProfile(id: string, patch: Partial<User>): Promise<UserDocument> {
-    const user = await this.userModel.findByIdAndUpdate(id, patch, { new: true }).exec();
+  async updateProfile(id: string, patch: Partial<User> & { password?: string }): Promise<UserDocument> {
+    const updateData: Partial<User> = { ...patch };
+    if (patch.password) {
+      updateData.passwordHash = await hash(patch.password, 10);
+      delete (updateData as any).password;
+    }
+    const user = await this.userModel.findByIdAndUpdate(id, updateData, { new: true }).exec();
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
