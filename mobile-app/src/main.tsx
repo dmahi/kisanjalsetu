@@ -4,7 +4,18 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './styles/global.css';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const container = document.getElementById('root')!;
+
+declare global {
+  interface Window {
+    __mobileReactRoot?: ReactDOM.Root;
+  }
+}
+
+const root = window.__mobileReactRoot ?? ReactDOM.createRoot(container);
+window.__mobileReactRoot = root;
+
+root.render(
   <React.StrictMode>
     <BrowserRouter>
       <App />
