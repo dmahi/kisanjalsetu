@@ -15,7 +15,6 @@ import { TubewellSwitcher } from './TubewellSwitcher';
 import { useMyTubewells } from './hooks';
 
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
-import { VoiceSpeakerButton } from '../../components/VoiceSpeakerButton';
 
 export default function FarmerHome() {
   const farmerTubewellId = useSelectionStore((s) => s.farmerTubewellId);
@@ -154,11 +153,6 @@ export default function FarmerHome() {
       <Card>
         <TubewellSwitcher />
       </Card>
-
-      {/* Voice Audio Speaker Assistance */}
-      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-        <VoiceSpeakerButton textToSpeak={liveSpeechText} />
-      </div>
 
       {/* Water Turn Ringing Bell Alert Notification */}
       {liveAlert ? (

@@ -245,11 +245,21 @@ export default function FarmerWaterRequests() {
           ) : fields.length === 0 ? (
             <p className="muted" style={{ fontSize: '0.82rem' }}>No fields registered yet. Please add a field first.</p>
           ) : (
-            <select value={fieldId} onChange={(e) => setFieldId(e.target.value)}>
+            <select
+              value={fieldId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setFieldId(id);
+                const selectedField = fields.find((f) => f.id === id);
+                if (selectedField?.crop) {
+                  setCropName(selectedField.crop);
+                }
+              }}
+            >
               <option value="">Select Field...</option>
               {fields.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name} {f.area ? `(${f.area} ${f.areaUnit})` : ''}
+                  {f.name} {f.crop ? `(${f.crop}) ` : ''}{f.area ? `[${f.area} ${f.areaUnit}]` : ''}
                 </option>
               ))}
             </select>

@@ -22,6 +22,11 @@ export class CreateFieldDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  crop?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(500)
   notes?: string;
 }

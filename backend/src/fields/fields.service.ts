@@ -14,7 +14,7 @@ export class FieldsService {
       .exec();
   }
 
-  async create(customerId: string, data: { name: string; area?: number; areaUnit?: string; location?: string; notes?: string }): Promise<FieldDocument> {
+  async create(customerId: string, data: { name: string; area?: number; areaUnit?: string; location?: string; crop?: string; notes?: string }): Promise<FieldDocument> {
     return this.fieldModel.create({ ...data, customerId: new Types.ObjectId(customerId) });
   }
 

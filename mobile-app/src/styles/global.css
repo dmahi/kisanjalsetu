@@ -111,11 +111,13 @@ label {
   background: var(--bg);
   display: flex;
   flex-direction: column;
+  /* Top safe area spacing to clear native Android/iOS status bar icons */
+  padding-top: max(28px, env(safe-area-inset-top, 28px));
 }
 
 .page {
   flex: 1;
-  padding: 16px 14px 108px;
+  padding: 12px 14px 108px;
 }
 
 .page-header {

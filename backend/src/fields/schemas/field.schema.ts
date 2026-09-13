@@ -21,6 +21,9 @@ export class Field {
   location?: string;
 
   @Prop({ trim: true })
+  crop?: string;
+
+  @Prop({ trim: true })
   notes?: string;
 
   @Prop({ default: 'active', enum: ['active', 'inactive'] })

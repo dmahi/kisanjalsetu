@@ -61,8 +61,8 @@ export function WaterPumpAnimation({
             />
           </svg>
         ) : (
-          <div style={{ padding: '12px 0', opacity: 0.7, textAlign: 'center', fontSize: '0.9rem' }}>
-            🚜 Tubewell is ready for next water request
+          <div style={{ padding: '12px 0', opacity: 0.95, textAlign: 'center', fontSize: '0.92rem', fontWeight: 600 }}>
+            🚰 Tubewell is ready for next water request
           </div>
         )}
       </div>

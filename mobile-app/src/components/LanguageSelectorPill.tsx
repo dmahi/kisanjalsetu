@@ -16,7 +16,7 @@ export function LanguageSelectorPill() {
             onClick={() => setLocale(loc.code as Locale)}
             title={`Switch language to ${loc.label}`}
           >
-            {loc.code === 'hi' ? '🇮🇳 हिंदी' : loc.code === 'pa' ? '🇮🇳 ਪੰਜਾਬੀ' : '🇬🇧 EN'}
+            {loc.code === 'hi' ? 'हिंदी' : loc.code === 'pa' ? 'ਪੰਜਾਬੀ' : 'EN'}
           </button>
         );
       })}

@@ -16,7 +16,6 @@ import { formatINR, formatDuration, formatClock, toLocalInput } from '../../util
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
 
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
-import { VoiceSpeakerButton } from '../../components/VoiceSpeakerButton';
 import { LanguageSelectorPill } from '../../components/LanguageSelectorPill';
 
 export default function OwnerDashboard() {
@@ -392,11 +391,6 @@ export default function OwnerDashboard() {
           ))}
         </select>
       </Card>
-
-      {/* Voice Audio Speaker Assistance for Tubewell Operator */}
-      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-        <VoiceSpeakerButton textToSpeak={ownerSpeechText} />
-      </div>
 
       {loading ? <Spinner /> : (
         <>

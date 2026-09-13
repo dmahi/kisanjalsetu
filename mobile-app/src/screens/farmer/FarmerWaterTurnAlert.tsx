@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { waterTurnAlertsApi, type WaterTurnAlert } from '../../api/waterTurnAlerts';
 import { apiErrorMessage } from '../../api/client';
 import { PageHeader, Card, Spinner, Pill, useToast } from '../../components/ui';
-import { VoiceSpeakerButton } from '../../components/VoiceSpeakerButton';
 
 const NOT_READY_REASONS = ['Finishing up', 'Not at the pump yet', 'Field not ready', 'Water not needed right now', 'Other'];
 
@@ -159,11 +158,6 @@ export default function FarmerWaterTurnAlert() {
               <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: 10 }}>
                 Attempt {focused.attemptNumber} of {focused.maxAttempts}
               </div>
-
-              {/* Audio Voice Readout Speaker for Farmers */}
-              <VoiceSpeakerButton
-                textToSpeak={`पानी की बारी का अलर्ट! ${focused.tubewellName || ''}. आपका समय शेष: ${Math.max(0, Math.floor(deadlineMs / 60000))} मिनट। क्या आप तैयार हैं?`}
-              />
             </div>
 
             {(focused.status === 'sent' || focused.status === 'acknowledged') ? (

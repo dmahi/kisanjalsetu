@@ -13,6 +13,7 @@ export interface Field {
   area: number;
   areaUnit?: string;
   location?: string;
+  crop?: string;
   notes?: string;
   status: string;
 }
@@ -33,7 +34,7 @@ export const cropsApi = {
 
 export const fieldsApi = {
   list: (): Promise<Field[]> => apiRequest({ url: '/fields', method: 'GET' }),
-  create: (data: { name: string; area?: number; areaUnit?: string; location?: string; notes?: string }): Promise<Field> =>
+  create: (data: { name: string; area?: number; areaUnit?: string; location?: string; crop?: string; notes?: string }): Promise<Field> =>
     apiRequest({ url: '/fields', method: 'POST', data }),
   update: (id: string, data: Record<string, unknown>): Promise<Field> =>
     apiRequest({ url: `/fields/${id}`, method: 'PATCH', data }),

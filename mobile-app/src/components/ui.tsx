@@ -24,7 +24,7 @@ export function PageHeader({
         <h1 className="page-title">{title}</h1>
         {subtitle ? <p className="page-sub">{subtitle}</p> : null}
       </div>
-      {right ?? <LanguageSelectorPill />}
+      {right}
     </div>
   );
 }

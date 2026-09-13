@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
-import { fieldsApi, notificationsApi, type Field } from '../../api/common';
+import { fieldsApi, cropsApi, notificationsApi, type Field, type Crop } from '../../api/common';
 import { apiErrorMessage } from '../../api/client';
 import { PageHeader, Card, useToast, Row, ModalSheet, Segmented } from '../../components/ui';
 import { useLocale, LOCALES, type Locale } from '../../store/locale.store';
@@ -15,10 +15,13 @@ export default function FarmerProfile() {
   const locale = useLocale((s) => s.locale);
   const setLocale = useLocale((s) => s.setLocale);
   const [fields, setFields] = useState<Field[]>([]);
+  const [cropsList, setCropsList] = useState<Crop[]>([]);
   const [unread, setUnread] = useState<number>(0);
   const [addOpen, setAddOpen] = useState(false);
   const [name, setName] = useState('');
   const [area, setArea] = useState('');
+  const [crop, setCrop] = useState('');
+  const [customCrop, setCustomCrop] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadFields = async () => {
@@ -32,6 +35,7 @@ export default function FarmerProfile() {
 
   useEffect(() => {
     void loadFields();
+    void cropsApi.list().then((c) => setCropsList(c || [])).catch(() => undefined);
     notificationsApi.unreadCount().then((r) => setUnread(r.count)).catch(() => undefined);
   }, []);
 
@@ -42,13 +46,20 @@ export default function FarmerProfile() {
       return;
     }
     setSaving(true);
+    const finalCrop = crop === 'OTHER_WRITE_IN' ? customCrop.trim() : crop.trim();
     try {
-      await fieldsApi.create({ name, area: area ? parseFloat(area) : undefined });
+      await fieldsApi.create({
+        name: name.trim(),
+        area: area ? parseFloat(area) : undefined,
+        crop: finalCrop || undefined,
+      });
       setAddOpen(false);
       setName('');
       setArea('');
+      setCrop('');
+      setCustomCrop('');
       void loadFields();
-      show(t('language_updated'), 'success');
+      show(t('created_ok'), 'success');
     } catch (err) {
       show(apiErrorMessage(err), 'error');
     } finally {
@@ -98,7 +109,7 @@ export default function FarmerProfile() {
           fields.map((f) => (
             <Row
               key={f.id}
-              title={f.name}
+              title={`${f.name}${f.crop ? ` (${f.crop})` : ''}`}
               sub={`${f.area ?? 0} ${f.areaUnit ?? t('acre')}${f.location ? ` · ${f.location}` : ''}`}
               right={<span className="muted">›</span>}
               onClick={() => undefined}
@@ -115,6 +126,24 @@ export default function FarmerProfile() {
         <form onSubmit={addField}>
           <label>{t('name')}</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Field A" autoFocus />
+          <label>{t('crop')} ({t('optional')})</label>
+          <select value={crop} onChange={(e) => setCrop(e.target.value)}>
+            <option value="">{t('select_ph')}</option>
+            {cropsList.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+            <option value="OTHER_WRITE_IN">+ {t('other')}...</option>
+          </select>
+          {crop === 'OTHER_WRITE_IN' && (
+            <input
+              style={{ marginTop: 8 }}
+              value={customCrop}
+              onChange={(e) => setCustomCrop(e.target.value)}
+              placeholder={t('crop_hint')}
+            />
+          )}
           <label>{t('area')} ({t('acre')})</label>
           <input inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="e.g. 2" />
           <button type="submit" className="btn btn-primary mt-lg" disabled={saving}>
