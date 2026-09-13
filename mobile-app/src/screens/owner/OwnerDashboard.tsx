@@ -15,6 +15,8 @@ import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, ModalSheet,
 import { formatINR, formatDuration, formatClock, toLocalInput } from '../../utils/formatters';
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
 
+import { useSidebarStore } from '../../store/sidebar.store';
+import { triggerHapticSelection } from '../../utils/haptics';
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
 import { LanguageSelectorPill } from '../../components/LanguageSelectorPill';
 
@@ -373,12 +375,11 @@ export default function OwnerDashboard() {
     <div className="page">
       {toast}
       <PageHeader
-        title={t('dashboard')}
-        subtitle={selectedTubewellObj?.name ?? ''}
+        title="Hello, Pump Owner ⚡"
+        subtitle={selectedTubewellObj?.name || 'KisanJalSetu'}
         right={
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <button className="btn btn-sm btn-ghost" onClick={() => navigate('/owner/reports')}>📈 {t('reports')}</button>
-            <LanguageSelectorPill />
+
           </div>
         }
       />
@@ -456,64 +457,64 @@ export default function OwnerDashboard() {
       {/* Next Farmer / Water Turn Alert panel */}
       {nextFarmer ? (
         <div className="mt">
-        <Card title="Next Farmer">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '1rem' }}>{nextFarmer.customerName || 'Farmer'}</div>
-              <div style={{ fontSize: '0.85rem', color: '#555', marginTop: 2 }}>
-                {nextFarmer.fieldName ? `Field: ${nextFarmer.fieldName}` : ''}
-                {nextFarmer.cropName ? ` (${nextFarmer.cropName})` : ''}
+          <Card title="Next Farmer">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '1rem' }}>{nextFarmer.customerName || 'Farmer'}</div>
+                <div style={{ fontSize: '0.85rem', color: '#555', marginTop: 2 }}>
+                  {nextFarmer.fieldName ? `Field: ${nextFarmer.fieldName}` : ''}
+                  {nextFarmer.cropName ? ` (${nextFarmer.cropName})` : ''}
+                </div>
               </div>
+              <Pill tone="info">QUEUE #{nextFarmer.queuePosition}</Pill>
             </div>
-            <Pill tone="info">QUEUE #{nextFarmer.queuePosition}</Pill>
-          </div>
 
-          {activeAlert ? (
-            <div style={{ marginTop: 12, backgroundColor: '#fff8e1', border: '1px solid #ffb300', borderRadius: 10, padding: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#e65100' }}>
-                  🚨 {activeAlert.status.toUpperCase().replace('_', ' ')}
+            {activeAlert ? (
+              <div style={{ marginTop: 12, backgroundColor: '#fff8e1', border: '1px solid #ffb300', borderRadius: 10, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#e65100' }}>
+                    🚨 {activeAlert.status.toUpperCase().replace('_', ' ')}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                    Attempt {activeAlert.attemptNumber}/{activeAlert.maxAttempts}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: '#666' }}>
-                  Attempt {activeAlert.attemptNumber}/{activeAlert.maxAttempts}
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#333', marginTop: 4 }}>{alertStatusText()}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                  {activeAlert.status === 'not_ready' || activeAlert.status === 'no_response' ? (
+                    <button
+                      className="btn btn-sm btn-secondary"
+                      disabled={actingAlertId === activeAlert.id}
+                      onClick={() => void handleAlertRetry(activeAlert.id)}
+                    >
+                      🔔 Alert Again
+                    </button>
+                  ) : null}
+                  {activeAlert.status === 'sent' || activeAlert.status === 'acknowledged' ? (
+                    <button
+                      className="btn btn-sm btn-ghost"
+                      disabled={actingAlertId === activeAlert.id}
+                      onClick={() => void handleAlertCancel(activeAlert.id)}
+                    >
+                      Cancel Alert
+                    </button>
+                  ) : null}
+                  <button className="btn btn-sm btn-primary" onClick={() => void handleOpenStartModal()}>
+                    ▶ Start Water
+                  </button>
                 </div>
               </div>
-              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#333', marginTop: 4 }}>{alertStatusText()}</div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                {activeAlert.status === 'not_ready' || activeAlert.status === 'no_response' ? (
-                  <button
-                    className="btn btn-sm btn-secondary"
-                    disabled={actingAlertId === activeAlert.id}
-                    onClick={() => void handleAlertRetry(activeAlert.id)}
-                  >
-                    🔔 Alert Again
-                  </button>
-                ) : null}
-                {activeAlert.status === 'sent' || activeAlert.status === 'acknowledged' ? (
-                  <button
-                    className="btn btn-sm btn-ghost"
-                    disabled={actingAlertId === activeAlert.id}
-                    onClick={() => void handleAlertCancel(activeAlert.id)}
-                  >
-                    Cancel Alert
-                  </button>
-                ) : null}
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}>
+                <button className="btn btn-sm btn-secondary" onClick={() => setNotifyOpen(true)}>
+                  📣 Notify Next Farmer
+                </button>
                 <button className="btn btn-sm btn-primary" onClick={() => void handleOpenStartModal()}>
                   ▶ Start Water
                 </button>
               </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}>
-              <button className="btn btn-sm btn-secondary" onClick={() => setNotifyOpen(true)}>
-                📣 Notify Next Farmer
-              </button>
-              <button className="btn btn-sm btn-primary" onClick={() => void handleOpenStartModal()}>
-                ▶ Start Water
-              </button>
-            </div>
-          )}
-        </Card>
+            )}
+          </Card>
         </div>
       ) : null}
 

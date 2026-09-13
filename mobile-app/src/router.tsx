@@ -12,6 +12,7 @@ import FarmerTubewells from './screens/farmer/FarmerTubewells';
 import FarmerTubewellDetail from './screens/farmer/FarmerTubewellDetail';
 import FarmerMyTubewellDetail from './screens/farmer/FarmerMyTubewellDetail';
 import FarmerProfile from './screens/farmer/FarmerProfile';
+import FarmerFields from './screens/farmer/FarmerFields';
 import BecomeOwner from './screens/farmer/BecomeOwner';
 import FarmerWaterRequests from './screens/farmer/FarmerWaterRequests';
 import FarmerWaterTurnAlert from './screens/farmer/FarmerWaterTurnAlert';
@@ -23,6 +24,7 @@ import OwnerSessions from './screens/owner/OwnerSessions';
 import OwnerPayments from './screens/owner/OwnerPayments';
 import OwnerReports from './screens/owner/OwnerReports';
 import OwnerProfile from './screens/owner/OwnerProfile';
+import OwnerTubewells from './screens/owner/OwnerTubewells';
 import OwnerWaterQueue from './screens/owner/OwnerWaterQueue';
 
 import NotificationsScreen from './screens/shared/NotificationsScreen';
@@ -84,6 +86,7 @@ function FarmerRoutes() {
       <Route path="water-turn" element={<FarmerWaterTurnAlert />} />
       <Route path="sessions" element={<FarmerSessions />} />
       <Route path="payments" element={<FarmerPayments />} />
+      <Route path="fields" element={<FarmerFields />} />
       <Route path="profile" element={<FarmerProfile />} />
       <Route path="become-owner" element={<BecomeOwner />} />
       <Route path="notifications" element={<NotificationsScreen title="Notifications" backTo="/farmer/profile" />} />
@@ -102,6 +105,7 @@ function OwnerRoutes() {
       <Route path="sessions" element={<OwnerSessions />} />
       <Route path="payments" element={<OwnerPayments />} />
       <Route path="reports" element={<OwnerReports />} />
+      <Route path="tubewells" element={<OwnerTubewells />} />
       <Route path="profile" element={<OwnerProfile />} />
       <Route path="notifications" element={<NotificationsScreen title="Notifications" backTo="/owner/profile" />} />
       <Route path="*" element={<Navigate to="/owner/dashboard" replace />} />

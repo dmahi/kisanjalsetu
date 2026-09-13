@@ -3,6 +3,8 @@ import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from
 import { shareWaterReceipt } from '../utils/native';
 import { pickPhoneContact } from '../utils/contacts';
 import { addWaterTurnToCalendar, type CalendarEventData } from '../utils/calendar';
+import { useSidebarStore } from '../store/sidebar.store';
+import { useAuthStore } from '../store/auth.store';
 
 interface Props {
   children: React.ReactNode;
@@ -16,18 +18,70 @@ export function PageHeader({
   title,
   subtitle,
   right,
+  showMenu = true,
 }: {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  showMenu?: boolean;
 }) {
+  const openSidebar = useSidebarStore((s) => s.open);
+  const user = useAuthStore((s) => s.user);
+  const isFarmer = user?.role === 'farmer';
+
   return (
-    <div className="page-header">
-      <div>
-        <h1 className="page-title">{title}</h1>
-        {subtitle ? <p className="page-sub">{subtitle}</p> : null}
+    <div className="emerald-header">
+      <div className="emerald-header-greeting">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {showMenu && (
+            <button
+              onClick={() => {
+                triggerHapticSelection();
+                openSidebar();
+              }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                background: 'rgba(255, 255, 255, 0.22)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.3rem',
+                border: 'none',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+              aria-label="Open menu"
+            >
+              ☰
+            </button>
+          )}
+          <div>
+            <h1 className="emerald-header-title">{title}</h1>
+            {subtitle && <p className="emerald-header-sub">{subtitle}</p>}
+          </div>
+        </div>
+        {right ?? (
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              background: 'rgba(255, 255, 255, 0.22)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.4rem',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+              flexShrink: 0,
+            }}
+          >
+            {isFarmer ? '👨‍🌾' : '⚡'}
+          </div>
+        )}
       </div>
-      {right}
     </div>
   );
 }

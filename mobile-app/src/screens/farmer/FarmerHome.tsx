@@ -11,6 +11,8 @@ import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useSessionTimerStore } from '../../store/sessionTimer.store';
 import { useAuthStore } from '../../store/auth.store';
 import { useLocale } from '../../store/locale.store';
+import { useSidebarStore } from '../../store/sidebar.store';
+import { triggerHapticSelection } from '../../utils/haptics';
 import { TubewellSwitcher } from './TubewellSwitcher';
 import { useMyTubewells } from './hooks';
 
@@ -149,13 +151,37 @@ export default function FarmerHome() {
   return (
     <div className="page">
       {toast}
-      <PageHeader title={t('home')} subtitle={dashboard?.tubewell?.name ?? t('loading')} />
+      <PageHeader
+        title={`Hello, ${user?.name || 'Farmer'} 🌾`}
+        subtitle={selectedTw?.name || 'KisanJalSetu'}
+      />
+
       <Card>
         <TubewellSwitcher />
       </Card>
 
+      {/* Category Quick Action Tiles matching reference UI */}
+      <div className="tile-grid">
+        <div className="tile-item" onClick={() => navigate('/farmer/requests')}>
+          <div className="tile-icon-badge" style={{ background: '#e8f5e9', color: '#046a38' }}>💧</div>
+          <div className="tile-label">Request Water</div>
+        </div>
+        <div className="tile-item" onClick={() => navigate('/farmer/tubewells')}>
+          <div className="tile-icon-badge" style={{ background: '#e0f2f1', color: '#00796b' }}>🗺️</div>
+          <div className="tile-label">Tubewells</div>
+        </div>
+        <div className="tile-item" onClick={() => navigate('/farmer/notifications')}>
+          <div className="tile-icon-badge" style={{ background: '#fff8e1', color: '#f57f17' }}>🔔</div>
+          <div className="tile-label">Alerts</div>
+        </div>
+        <div className="tile-item" onClick={() => navigate('/farmer/fields')}>
+          <div className="tile-icon-badge" style={{ background: '#ede7f6', color: '#512da8' }}>🌱</div>
+          <div className="tile-label">My Fields</div>
+        </div>
+      </div>
+
       {/* Water Turn Ringing Bell Alert Notification */}
-      {liveAlert ? (
+      {liveAlert && (
         <div className="turn-alert-card mt">
           <div className="ringing-bell-icon">🔔</div>
           <div style={{ fontWeight: 800, color: '#b45309', fontSize: '1.15rem', marginTop: 4 }}>
@@ -170,7 +196,7 @@ export default function FarmerHome() {
             </button>
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Live Animated Tubewell Pump Card */}
       <div className="mt">
@@ -183,10 +209,10 @@ export default function FarmerHome() {
         />
       </div>
 
-      {/* Water Request / Queue Widget */}
-      <div style={{ marginTop: 12 }}>
-        <Card>
-          {activeRequest ? (
+      {/* Active Water Request / Queue Widget */}
+      {activeRequest && (
+        <div style={{ marginTop: 12 }}>
+          <Card>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -194,14 +220,14 @@ export default function FarmerHome() {
                     {activeRequest.fieldName || 'Field'}{activeRequest.cropName ? ` (${activeRequest.cropName})` : ''}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: '#555', marginTop: 2 }}>
-                    Requested: {Math.round(activeRequest.requestedDurationMinutes / 60 * 10) / 10} hours
+                    Requested: {Math.round((activeRequest.requestedDurationMinutes / 60) * 10) / 10} hours
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <Pill tone={activeRequest.status === 'accepted' ? 'paid' : 'pending'}>
                     {activeRequest.status.toUpperCase()}
                   </Pill>
-                  {activeRequest.status === 'accepted' && activeRequest.queuePosition != null ? (
+                  {activeRequest.status === 'accepted' && activeRequest.queuePosition != null && (
                     <div
                       style={{
                         marginTop: 4,
@@ -215,7 +241,7 @@ export default function FarmerHome() {
                     >
                       Queue #{activeRequest.queuePosition}
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </div>
               <button
@@ -226,19 +252,9 @@ export default function FarmerHome() {
                 View All Requests →
               </button>
             </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>Need Water for Irrigation?</div>
-                <div style={{ fontSize: '0.82rem', color: '#666' }}>Submit a request to the tubewell owner.</div>
-              </div>
-              <button className="btn btn-sm btn-primary" onClick={() => navigate('/farmer/requests')}>
-                + Request Water
-              </button>
-            </div>
-          )}
-        </Card>
-      </div>
+          </Card>
+        </div>
+      )}
 
       {loading ? (
         <Spinner />

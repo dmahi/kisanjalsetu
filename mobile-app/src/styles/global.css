@@ -1,44 +1,45 @@
 :root {
-  /* Brand — tubewell blue (default #0095f3) */
-  --brand-700: #0a4f8a;
-  --brand-600: #0673c9;
-  --brand-500: #0095f3;
-  --brand-400: #2ba6f5;
-  --brand-soft: #e4f3fd;
-  --brand-deep: linear-gradient(135deg, #0673c9, #0095f3 60%, #2ba6f5);
-  --brand-deep-2: linear-gradient(135deg, #0a4f8a, #0095f3 55%, #27a5f4);
+  /* Brand — Emerald Farm & Agriculture system */
+  --brand-700: #02381d;
+  --brand-600: #034b27;
+  --brand-500: #046a38;
+  --brand-400: #058547;
+  --brand-300: #1ca65e;
+  --brand-soft: #e8f5e9;
+  --brand-deep: linear-gradient(180deg, #056837 0%, #034b27 100%);
+  --brand-deep-2: linear-gradient(135deg, #02381d, #046a38 60%, #058547);
 
-  /* Semantic positive accents (paid / running / success) */
-  --green: #16a34a;
-  --green-soft: #e8f7ee;
+  /* Semantic positive accents */
+  --green: #046a38;
+  --green-soft: #e8f5e9;
 
   /* Water accent */
-  --blue: #0e7490;
-  --blue-600: #0891b2;
-  --blue-500: #0d9cc6;
-  --blue-soft: #e0f4fa;
+  --blue: #0277bd;
+  --blue-600: #01579b;
+  --blue-500: #0288d1;
+  --blue-soft: #e1f5fe;
 
   /* Functional tones */
-  --red: #d63031;
-  --red-soft: #fdecec;
-  --amber: #b45309;
-  --amber-soft: #fdf3e0;
-  --violet: #6b3fb5;
-  --violet-soft: #efe9fc;
+  --red: #d32f2f;
+  --red-soft: #ffebee;
+  --amber: #f57c00;
+  --amber-soft: #fff3e0;
+  --violet: #7b1fa2;
+  --violet-soft: #f3e5f5;
 
-  /* Neutrals on a warm cream base */
-  --bg: #f6f4ef;
-  --cream: #fbfaf6;
+  /* Neutrals on Emerald Farm canvas */
+  --bg: #f2f5f3;
+  --cream: #f8faf9;
   --card: #ffffff;
-  --ink: #1b2a21;
-  --ink-soft: #5f6b68;
-  --line: #e8e6df;
+  --ink: #0b1c12;
+  --ink-soft: #2d4537;
+  --line: #d2dcd4;
 
-  --radius: 16px;
-  --radius-lg: 22px;
+  --radius: 22px;
+  --radius-lg: 28px;
   --radius-pill: 999px;
-  --shadow: 0 1px 2px rgba(9, 45, 80, 0.05), 0 6px 18px rgba(9, 45, 80, 0.06);
-  --shadow-lg: 0 10px 34px rgba(9, 45, 80, 0.14);
+  --shadow: 0 4px 20px rgba(4, 106, 56, 0.08), 0 1px 3px rgba(4, 106, 56, 0.04);
+  --shadow-lg: 0 14px 42px rgba(4, 106, 56, 0.16);
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -246,6 +247,147 @@ label {
   display: flex;
   padding: 6px;
   z-index: 40;
+}
+
+/* Sidebar Drawer Overlay & Panel */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.sidebar-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sidebar-drawer {
+  width: 320px;
+  max-width: 85vw;
+  height: 100%;
+  background: #ffffff;
+  box-shadow: 6px 0 30px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+}
+
+.sidebar-overlay.open .sidebar-drawer {
+  transform: translateX(0);
+}
+
+.sidebar-header {
+  background: var(--brand-deep);
+  color: #ffffff;
+  padding: 24px 20px 20px;
+  position: relative;
+}
+
+.sidebar-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border: none;
+}
+
+.sidebar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.sidebar-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-user-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+  color: #ffffff;
+}
+
+.sidebar-user-role {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
+}
+
+.sidebar-nav {
+  padding: 16px 12px;
+  flex: 1;
+}
+
+.sidebar-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  padding: 8px 12px 6px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  margin-bottom: 3px;
+}
+
+.sidebar-item:hover, .sidebar-item.active {
+  background: var(--brand-soft);
+  color: var(--brand-500);
+}
+
+.sidebar-item-icon {
+  font-size: 1.25rem;
+  width: 24px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--cream);
 }
 
 .bottom-nav a,
@@ -529,14 +671,16 @@ label {
 }
 
 .row-sub {
-  font-size: 0.8rem;
-  color: var(--line);
-  margin-top: 2px;
+  font-size: 0.84rem;
+  color: #3b5446;
+  font-weight: 600;
+  margin-top: 3px;
 }
 
 /* ---------- Misc ---------- */
 .muted {
-  color: var(--ink-soft);
+  color: #3b5446;
+  font-weight: 600;
 }
 
 .center {
@@ -693,27 +837,48 @@ label {
   }
 }
 
+.filter-bar {
+  margin: 12px 0 16px;
+  width: 100%;
+}
+
 .segmented {
   display: flex;
-  background: #eef1f6;
-  border-radius: 12px;
-  padding: 3px;
-  gap: 3px;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  box-shadow: var(--shadow);
+}
+
+.segmented::-webkit-scrollbar {
+  display: none;
 }
 
 .segmented button {
-  flex: 1;
-  padding: 9px 6px;
+  flex: 1 0 auto;
+  padding: 10px 16px;
   font-size: 0.85rem;
-  font-weight: 800;
-  border-radius: 9px;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
   color: var(--ink-soft);
+  white-space: nowrap;
+  text-align: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .segmented button.active {
-  background: var(--brand-deep);
-  color: #fff;
-  box-shadow: var(--shadow);
+  background: var(--brand-500);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(4, 106, 56, 0.28);
 }
 
 .sheet-title {
@@ -1161,4 +1326,126 @@ button:active,
   border-color: #25d366;
   transform: scale(1.08);
   box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+}
+
+/* Emerald Farm & Agriculture Theme Classes */
+.emerald-header {
+  background: var(--brand-deep);
+  color: #ffffff;
+  margin: -12px -14px 16px;
+  padding: 24px 20px 32px;
+  border-bottom-left-radius: 32px;
+  border-bottom-right-radius: 32px;
+  box-shadow: 0 12px 30px rgba(4, 106, 56, 0.22);
+}
+
+.emerald-header-greeting {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.emerald-header-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0;
+  color: #ffffff;
+}
+
+.emerald-header-sub {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin: 2px 0 0;
+}
+
+.emerald-search-pill {
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-pill);
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+}
+
+.emerald-search-pill input {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  font-size: 0.92rem;
+  box-shadow: none !important;
+}
+
+.emerald-search-pill input::placeholder {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.btn-emerald-pill {
+  background: var(--brand-500);
+  color: #ffffff;
+  border-radius: var(--radius-pill);
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 800;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(4, 106, 56, 0.28);
+  transition: all 0.15s ease;
+}
+
+.btn-emerald-pill:active {
+  transform: scale(0.97);
+  background: var(--brand-600);
+}
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tile-item {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(4, 106, 56, 0.06);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.tile-item:active {
+  transform: scale(0.95);
+}
+
+.tile-icon-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  margin-bottom: 6px;
+}
+
+.tile-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.1;
 }
