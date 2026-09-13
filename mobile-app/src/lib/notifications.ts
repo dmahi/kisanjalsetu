@@ -257,22 +257,28 @@ export async function deactivateDeviceToken(): Promise<void> {
 async function ensureNotificationChannel(): Promise<void> {
   if (!isCapacitorNative()) return;
   try {
-    // Delete existing alert channel to allow updating sound & importance settings
-    try {
-      await LocalNotifications.deleteChannel({ id: WATER_ALERT_CHANNEL_ID });
-    } catch {
-      /* ignore if non-existent */
+    // Delete existing channels to force Android to re-create channels with High Importance & Sound
+    const channelsToDelete = [GENERAL_CHANNEL_ID, WATER_CHANNEL_ID, PAYMENTS_CHANNEL_ID, WATER_ALERT_CHANNEL_ID];
+    for (const channelId of channelsToDelete) {
+      try {
+        await LocalNotifications.deleteChannel({ id: channelId });
+      } catch {
+        /* ignore if non-existent */
+      }
     }
 
     await LocalNotifications.createChannel({
       id: GENERAL_CHANNEL_ID,
-      name: 'General',
-      description: 'Water status and session notifications',
-      importance: 5,
-      visibility: 1,
+      name: 'General Alerts',
+      description: 'Water status and queue notifications',
+      importance: 5, // IMPORTANCE_HIGH: Banner + Sound
+      visibility: 1, // VISIBILITY_PUBLIC: Show full banner on lock screen
       sound: 'default',
       vibration: true,
+      lights: true,
+      lightColor: '#046A38',
     });
+
     await LocalNotifications.createChannel({
       id: WATER_CHANNEL_ID,
       name: 'Water sessions',
@@ -281,7 +287,10 @@ async function ensureNotificationChannel(): Promise<void> {
       visibility: 1,
       sound: 'default',
       vibration: true,
+      lights: true,
+      lightColor: '#0288D1',
     });
+
     await LocalNotifications.createChannel({
       id: PAYMENTS_CHANNEL_ID,
       name: 'Payments',
@@ -291,16 +300,17 @@ async function ensureNotificationChannel(): Promise<void> {
       sound: 'default',
       vibration: true,
     });
+
     await LocalNotifications.createChannel({
       id: WATER_ALERT_CHANNEL_ID,
       name: 'Water turn alerts',
       description: 'Get ready / confirm READY or NOT READY for your water turn',
       importance: 5, // IMPORTANCE_MAX: Heads-up banner display
       visibility: 1, // VISIBILITY_PUBLIC: Show full banner on lock screen
-      sound: 'incoming_call', // plays res/raw/incoming_call.wav
+      sound: 'default', // Plays system notification ringtone reliably on all Android phones
       vibration: true,
       lights: true,
-      lightColor: '#0284C7',
+      lightColor: '#046A38',
     });
   } catch (err) {
     console.warn('notification channel failed', err);
@@ -326,7 +336,7 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
             title: payload?.title ? String(payload.title) : 'KisanJalSetu',
             body: payload?.body ? String(payload.body) : '',
             channelId: isTurnAlert ? WATER_ALERT_CHANNEL_ID : GENERAL_CHANNEL_ID,
-            sound: isTurnAlert ? 'incoming_call' : 'default',
+            sound: 'default',
             smallIcon: 'ic_stat_water',
             extra: parsed,
           },
@@ -372,38 +382,40 @@ function safeParse(raw: string): Record<string, unknown> {
  * FCM: grant, register, and upload the device token so the backend can send
  * server push. One-time setup in the app bootstrap. Also wires channel
  * creation, foreground display, and background/closed tap navigation.
- *
- * Requires a Firebase project configured (google-services.json) on Android.
- * Without it, calling PushNotifications.register() crashes the native process
- * (Default FirebaseApp is not initialized), so FCM registration is gated behind
- * the VITE_FCM_PUSH flag or skips gracefully if unavailable.
  */
 export async function initPushNotifications(): Promise<void> {
   if (!isCapacitorNative()) return;
-  // Always initialize high-priority notification channels (including call sound channel)
+
+  // 1. Explicitly prompt user for local & push notification permissions on Android 13+
+  await ensurePermissions();
+
+  // 2. Always initialize high-priority notification channels with banner & ringtone sound
   await ensureNotificationChannel();
 
-  if (import.meta.env?.VITE_FCM_PUSH !== 'true') return;
+  // 3. Register Push Notifications if available
   try {
     const ps = PushNotifications;
     const status = await ps.checkPermissions();
     if (status.receive !== 'granted') {
-      const req = await ps.requestPermissions();
-      if (req.receive !== 'granted') return;
+      await ps.requestPermissions();
     }
-    await ps.register();
+    await ps.register().catch(() => undefined);
+
     ps.addListener('registration', async (token: { value: string }) => {
       latestFcmToken = token.value;
       await Preferences.set({ key: FCM_TOKEN_KEY, value: token.value });
       await uploadDeviceToken();
     });
+
     ps.addListener('registrationError', (err: unknown) =>
       console.warn('FCM registration error', err),
     );
+
     ps.addListener('pushNotificationReceived', (n: unknown) => {
       const payload = n as { title?: string; body?: string; data?: string };
       displayForegroundNotification(payload as Record<string, unknown>);
     });
+
     ps.addListener('pushNotificationActionPerformed', (n: unknown) => {
       const action = n as { notification?: { data?: unknown } };
       const raw = action?.notification?.data;

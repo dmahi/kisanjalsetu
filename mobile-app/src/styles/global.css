@@ -1590,11 +1590,93 @@ label {
 /* Tactile Micro-animations & Glassmorphic Polish */
 button:active,
 .btn:active,
-.card:active,
 .row:active,
+.field-item-card:active,
 .segmented button:active {
   transform: scale(0.975);
   transition: transform 0.1s ease;
+}
+
+/* Isolated Field Item Card */
+.field-item-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  border: 1.5px solid var(--line);
+  box-shadow: 0 3px 12px rgba(4, 106, 56, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.field-item-card:hover {
+  border-color: var(--brand-500);
+  background: #f4faf5;
+  box-shadow: 0 6px 20px rgba(4, 106, 56, 0.14);
+}
+
+.field-item-card:active {
+  transform: scale(0.985);
+  border-color: var(--brand-600);
+  background: var(--brand-soft);
+}
+
+.field-item-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--brand-soft);
+  color: var(--brand-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(4, 106, 56, 0.15);
+}
+
+.field-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-item-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-item-sub {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.field-item-arrow {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #94a3b8;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.field-item-card:hover .field-item-arrow,
+.field-item-card:active .field-item-arrow {
+  color: var(--brand-500);
+  transform: translateX(3px);
 }
 
 .card-glass {
