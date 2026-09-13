@@ -1,13 +1,13 @@
 :root {
-  /* Brand — Emerald Farm & Agriculture system */
-  --brand-700: #02381d;
-  --brand-600: #034b27;
-  --brand-500: #046a38;
-  --brand-400: #058547;
-  --brand-300: #1ca65e;
-  --brand-soft: #e8f5e9;
-  --brand-deep: linear-gradient(180deg, #056837 0%, #034b27 100%);
-  --brand-deep-2: linear-gradient(135deg, #02381d, #046a38 60%, #058547);
+  /* Brand — Vibrant Light Emerald Agriculture System */
+  --brand-700: #047857;
+  --brand-600: #059669;
+  --brand-500: #10b981;
+  --brand-400: #34d399;
+  --brand-300: #6ee7b7;
+  --brand-soft: #ecfdf5;
+  --brand-deep: linear-gradient(135deg, #047857 0%, #059669 45%, #10b981 100%);
+  --brand-deep-2: linear-gradient(135deg, #065f46 0%, #059669 60%, #34d399 100%);
 
   /* Semantic positive accents */
   --green: #046a38;
@@ -467,7 +467,8 @@ label {
   margin-bottom: 3px;
 }
 
-.sidebar-item:hover, .sidebar-item.active {
+.sidebar-item:hover,
+.sidebar-item.active {
   background: var(--brand-soft);
   color: var(--brand-500);
 }
@@ -767,7 +768,8 @@ label {
   transition: color 0.15s ease, background 0.15s ease;
 }
 
-.drag-handle:hover, .drag-handle:active {
+.drag-handle:hover,
+.drag-handle:active {
   color: var(--brand-500);
   background: var(--brand-soft);
   cursor: grabbing;
@@ -1102,21 +1104,24 @@ label {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(10, 14, 20, 0.45);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 60;
+  z-index: 99999;
 }
 
 .modal-sheet {
   width: 100%;
   max-width: 520px;
-  background: #fff;
-  border-radius: 22px 22px 0 0;
-  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
-  max-height: 88dvh;
+  background: #ffffff;
+  border-radius: 26px 26px 0 0;
+  padding: 20px 18px calc(36px + env(safe-area-inset-bottom, 20px));
+  max-height: 90dvh;
   overflow-y: auto;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.22);
 }
 
 .filter-bar {
@@ -1761,17 +1766,32 @@ button:active,
   background: var(--brand-deep);
   color: #ffffff;
   margin: -12px -14px 16px;
-  padding: 24px 20px 32px;
-  border-bottom-left-radius: 32px;
-  border-bottom-right-radius: 32px;
-  box-shadow: 0 12px 30px rgba(4, 106, 56, 0.22);
+  padding: 22px 20px 26px;
+  border-bottom-left-radius: 30px;
+  border-bottom-right-radius: 30px;
+  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.28), 0 4px 14px rgba(5, 150, 105, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.emerald-header::before {
+  content: '';
+  position: absolute;
+  top: -45px;
+  right: -35px;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
 }
 
 .emerald-header-greeting {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .emerald-header-title {
@@ -1779,12 +1799,15 @@ button:active,
   font-weight: 800;
   margin: 0;
   color: #ffffff;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
 .emerald-header-sub {
-  font-size: 0.8rem;
-  opacity: 0.85;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.94);
   margin: 2px 0 0;
+  font-weight: 500;
 }
 
 .emerald-search-pill {

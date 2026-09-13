@@ -1,5 +1,6 @@
 import { Menu, Share2, UserCheck, CalendarDays } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../utils/haptics';
 import { shareWaterReceipt } from '../utils/native';
 import { pickPhoneContact } from '../utils/contacts';
@@ -177,7 +178,7 @@ export function ModalSheet({
   children: React.ReactNode;
 }) {
   if (!open) return null;
-  return (
+  return createPortal(
     <div
       className="modal-backdrop"
       onClick={() => {
@@ -203,7 +204,8 @@ export function ModalSheet({
         ) : null}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

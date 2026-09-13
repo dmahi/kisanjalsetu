@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { isCapacitorNative } from '../api/config';
 
-const DEFAULT_THRESHOLD = 72;
-const MIN_SPINNER_MS = 650;
-const MAX_PULL = 110;
+const DEFAULT_THRESHOLD = 110;
+const MIN_SPINNER_MS = 750;
+const MAX_PULL = 140;
+const HOLD_REQUIRED_MS = 550; // User must hold pull past threshold for ~0.5s or pull deeply to refresh
 
 interface Props {
   children: ReactNode;
@@ -38,12 +39,15 @@ export default function RefreshablePage({
     active: false,
     pull: 0,
     crossed: false,
+    crossedAt: 0,
   });
 
   const finishTimer = useRef<number | null>(null);
   const crossedTimer = useRef<number | null>(null);
 
   const atTop = () => {
+    // Disable pull-to-refresh when any popup/modal or map picker is open
+    if (document.querySelector('.modal-backdrop')) return false;
     if (zoneRef.current) {
       return zoneRef.current.scrollTop <= 0;
     }
@@ -94,10 +98,17 @@ export default function RefreshablePage({
       g.active = false;
       g.startY = clientY;
       g.crossed = false;
+      g.crossedAt = 0;
       if (crossedTimer.current) window.clearTimeout(crossedTimer.current);
     };
     const move = (clientY: number, e: Event | null) => {
       if (!g.tracking || refreshing) return;
+      if (document.querySelector('.modal-backdrop')) {
+        g.tracking = false;
+        g.active = false;
+        setPullPx(0);
+        return;
+      }
       const dy = clientY - g.startY;
       if (dy <= 0) {
         g.active = false;
@@ -106,25 +117,31 @@ export default function RefreshablePage({
       }
       g.active = true;
       // Haptic bump as soon as the threshold is crossed.
-      if (!g.crossed && dy >= threshold) {
+      if (!g.crossed && dy >= threshold * 1.8) {
         g.crossed = true;
+        g.crossedAt = Date.now();
         try {
-          void Haptics.impact({ style: ImpactStyle.Light });
+          void Haptics.impact({ style: ImpactStyle.Medium });
         } catch {
           /* not a native device */
         }
-        crossedTimer.current = window.setTimeout(() => (g.crossed = false), 400);
+        crossedTimer.current = window.setTimeout(() => (g.crossed = false), 600);
       }
-      const px = Math.min((dy * 0.5) + (g.crossed ? threshold * 0.25 : 0), MAX_PULL);
+      const px = Math.min((dy * 0.42) + (g.crossed ? 15 : 0), MAX_PULL);
       if (g.pull !== px) setPullPx(px);
-      if (e && isTouch) e.preventDefault();
+      if (e && isTouch && dy > 15) e.preventDefault();
     };
     const end = () => {
       if (!g.tracking) return;
       g.tracking = false;
       if (g.active) {
-        if (g.pull >= threshold) runRefresh();
-        else setPullPx(0);
+        // Require holding past threshold for HOLD_REQUIRED_MS or deep pull to refresh
+        const heldEnough = g.crossedAt > 0 && (Date.now() - g.crossedAt >= HOLD_REQUIRED_MS || g.pull >= threshold);
+        if (heldEnough) {
+          runRefresh();
+        } else {
+          setPullPx(0);
+        }
       }
       g.active = false;
     };
