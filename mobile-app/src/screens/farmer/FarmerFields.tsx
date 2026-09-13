@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Sprout, Plus, ChevronRight, MapPin, Trash2, Edit } from 'lucide-react';
 import { fieldsApi, cropsApi, type Field, type Crop } from '../../api/common';
 import { apiErrorMessage } from '../../api/client';
 import { PageHeader, Card, useToast, Row, ModalSheet, EmptyState, Spinner } from '../../components/ui';
@@ -177,7 +178,9 @@ export default function FarmerFields() {
                 setViewingField(f);
               }}
             >
-              <div className="field-item-icon">🌱</div>
+              <div className="field-item-icon">
+                <Sprout size={22} color="var(--brand-600)" />
+              </div>
               <div className="field-item-info">
                 <div className="field-item-title">
                   <span>{f.name}</span>
@@ -191,6 +194,9 @@ export default function FarmerFields() {
                         padding: '2px 8px',
                         borderRadius: 12,
                         border: '1px solid rgba(4, 106, 56, 0.15)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
                       }}
                     >
                       🌾 {f.crop}
@@ -200,11 +206,15 @@ export default function FarmerFields() {
                 <div className="field-item-sub">
                   <span>📐 {f.area ?? 0} {f.areaUnit ?? t('acre')}</span>
                   {f.location ? (
-                    <span style={{ color: 'var(--brand-600)' }}>📍 {f.location}</span>
+                    <span style={{ color: 'var(--brand-600)', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                      <MapPin size={13} /> {f.location}
+                    </span>
                   ) : null}
                 </div>
               </div>
-              <div className="field-item-arrow">›</div>
+              <div className="field-item-arrow">
+                <ChevronRight size={20} />
+              </div>
             </div>
           ))}
         </div>
@@ -214,7 +224,8 @@ export default function FarmerFields() {
         className="btn-emerald-pill mt-lg"
         onClick={openAddModal}
       >
-        + Add New Field
+        <Plus size={20} />
+        <span>Add New Field</span>
       </button>
 
       {/* POPUP 1: FIELD DETAILS MODAL SHEET */}

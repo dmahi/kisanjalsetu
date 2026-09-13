@@ -55,7 +55,7 @@ async function readStoredToken(): Promise<string | null> {
   return value || getToken();
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   user: null,
   loading: false,
@@ -81,7 +81,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token: null, user: null });
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    set({ user });
+    const token = get().token;
+    if (token && user) void persistAuth(token, user);
+  },
 
   hydrate: async () => {
     setAsyncTokenProvider(async () => readStoredToken());

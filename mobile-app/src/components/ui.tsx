@@ -1,3 +1,4 @@
+import { Menu, Share2, UserCheck, CalendarDays } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../utils/haptics';
 import { shareWaterReceipt } from '../utils/native';
@@ -5,6 +6,8 @@ import { pickPhoneContact } from '../utils/contacts';
 import { addWaterTurnToCalendar, type CalendarEventData } from '../utils/calendar';
 import { useSidebarStore } from '../store/sidebar.store';
 import { useAuthStore } from '../store/auth.store';
+import { UserAvatar } from './UserAvatar';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   children: React.ReactNode;
@@ -28,6 +31,7 @@ export function PageHeader({
   const openSidebar = useSidebarStore((s) => s.open);
   const user = useAuthStore((s) => s.user);
   const isFarmer = user?.role === 'farmer';
+  const navigate = useNavigate();
 
   return (
     <div className="emerald-header">
@@ -55,7 +59,7 @@ export function PageHeader({
               }}
               aria-label="Open menu"
             >
-              ☰
+              <Menu size={22} />
             </button>
           )}
           <div>
@@ -64,22 +68,16 @@ export function PageHeader({
           </div>
         </div>
         {right ?? (
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              background: 'rgba(255, 255, 255, 0.22)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.4rem',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-              flexShrink: 0,
+          <button
+            aria-label="Profile"
+            onClick={() => {
+              triggerHapticSelection();
+              navigate(isFarmer ? '/farmer/profile' : '/owner/profile');
             }}
+            style={{ padding: 0, border: 'none', background: 'none', borderRadius: '50%' }}
           >
-            {isFarmer ? '👨‍🌾' : '⚡'}
-          </div>
+            <UserAvatar user={user} size={44} />
+          </button>
         )}
       </div>
     </div>

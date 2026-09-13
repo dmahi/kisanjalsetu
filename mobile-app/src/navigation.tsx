@@ -1,8 +1,14 @@
+import React from 'react';
 import { useLocation, Navigate, Link, useNavigate } from 'react-router-dom';
+import {
+  X,
+  LogOut,
+} from 'lucide-react';
 import { useAuthStore } from './store/auth.store';
 import { useLocale } from './store/locale.store';
 import { useSidebarStore } from './store/sidebar.store';
 import { LanguageSelectorPill } from './components/LanguageSelectorPill';
+import { UserAvatar } from './components/UserAvatar';
 
 export function NavItem({
   to,
@@ -11,30 +17,36 @@ export function NavItem({
   active,
 }: {
   to: string;
-  icon: string;
+  icon: string | React.ElementType;
   label: string;
   active: boolean;
 }) {
   return (
     <Link to={to} className={`nav-item ${active ? 'active' : ''}`}>
-      <span className="nav-icon">{icon}</span>
-      <span>{label}</span>
+      <span className="nav-icon" style={{ fontSize: '1.35rem', lineHeight: 1 }}>
+        {typeof icon === 'string' ? (
+          icon
+        ) : (
+          React.createElement(icon, { size: 20, strokeWidth: active ? 2.5 : 2 })
+        )}
+      </span>
+      <span style={{ fontWeight: active ? 800 : 600 }}>{label}</span>
     </Link>
   );
 }
 
 const FARMER_TABS = [
-  { to: '/farmer/home', icon: '🏠', label: 'home' },
+  { to: '/farmer/home', icon: '🏡', label: 'home' },
   { to: '/farmer/sessions', icon: '💧', label: 'sessions' },
-  { to: '/farmer/payments', icon: '💳', label: 'payments' },
-  { to: '/farmer/profile', icon: '👤', label: 'profile' },
+  { to: '/farmer/payments', icon: '💰', label: 'payments' },
+  { to: '/farmer/profile', icon: '👨‍🌾', label: 'profile' },
 ];
 
 const OWNER_TABS = [
   { to: '/owner/dashboard', icon: '📊', label: 'dashboard' },
   { to: '/owner/queue', icon: '📋', label: 'queue' },
-  { to: '/owner/payments', icon: '💳', label: 'payments' },
-  { to: '/owner/profile', icon: '👤', label: 'profile' },
+  { to: '/owner/payments', icon: '💰', label: 'payments' },
+  { to: '/owner/profile', icon: '⚡', label: 'profile' },
 ];
 
 export function SidebarDrawer() {
@@ -66,16 +78,18 @@ export function SidebarDrawer() {
       <div className="sidebar-drawer" onClick={(e) => e.stopPropagation()}>
         <div className="sidebar-header">
           <button className="sidebar-close-btn" onClick={close} aria-label="Close menu">
-            ✕
+            <X size={18} />
           </button>
-          <div style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.05em', opacity: 0.9 }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 800, letterSpacing: '0.05em', opacity: 0.9 }}>
             KISAN JALSETU
           </div>
           <div className="sidebar-user-info">
-            <div className="sidebar-avatar">{isFarmer ? '👨‍🌾' : '⚡'}</div>
+            <div className="sidebar-avatar">
+              <UserAvatar user={user} size={44} />
+            </div>
             <div>
               <h3 className="sidebar-user-name">{user.name || 'User'}</h3>
-              <div className="sidebar-user-role">{user.phone} · {isFarmer ? 'Farmer' : 'Tubewell Owner'}</div>
+              <div className="sidebar-user-role">{user.phone} · {isFarmer ? '👨‍🌾 Farmer' : '⚡ Tubewell Owner'}</div>
             </div>
           </div>
         </div>
@@ -88,7 +102,7 @@ export function SidebarDrawer() {
                 className={`sidebar-item ${location.pathname === '/farmer/home' ? 'active' : ''}`}
                 onClick={() => handleNav('/farmer/home')}
               >
-                <span className="sidebar-item-icon">🏠</span>
+                <span className="sidebar-item-icon">🏡</span>
                 <span>{t('home')}</span>
               </a>
               <a
@@ -116,14 +130,14 @@ export function SidebarDrawer() {
                 className={`sidebar-item ${location.pathname === '/farmer/fields' ? 'active' : ''}`}
                 onClick={() => handleNav('/farmer/fields')}
               >
-                <span className="sidebar-item-icon">🌱</span>
+                <span className="sidebar-item-icon">🌾</span>
                 <span>My Fields</span>
               </a>
               <a
                 className={`sidebar-item ${location.pathname === '/farmer/payments' ? 'active' : ''}`}
                 onClick={() => handleNav('/farmer/payments')}
               >
-                <span className="sidebar-item-icon">💳</span>
+                <span className="sidebar-item-icon">💰</span>
                 <span>{t('payments')}</span>
               </a>
               <a
@@ -137,14 +151,14 @@ export function SidebarDrawer() {
                 className={`sidebar-item ${location.pathname === '/farmer/profile' ? 'active' : ''}`}
                 onClick={() => handleNav('/farmer/profile')}
               >
-                <span className="sidebar-item-icon">👤</span>
+                <span className="sidebar-item-icon">👨‍🌾</span>
                 <span>Profile & Settings</span>
               </a>
               <a
                 className={`sidebar-item ${location.pathname === '/farmer/become-owner' ? 'active' : ''}`}
                 onClick={() => handleNav('/farmer/become-owner')}
               >
-                <span className="sidebar-item-icon">⚡</span>
+                <span className="sidebar-item-icon">🚜</span>
                 <span>Become a Pump Owner</span>
               </a>
             </>
@@ -182,7 +196,7 @@ export function SidebarDrawer() {
                 className={`sidebar-item ${location.pathname === '/owner/payments' ? 'active' : ''}`}
                 onClick={() => handleNav('/owner/payments')}
               >
-                <span className="sidebar-item-icon">💳</span>
+                <span className="sidebar-item-icon">💰</span>
                 <span>{t('payments')}</span>
               </a>
               <a
@@ -217,10 +231,11 @@ export function SidebarDrawer() {
           </div>
           <button
             className="btn btn-danger"
-            style={{ width: '100%', borderRadius: 12, padding: '10px 14px', fontSize: '0.9rem' }}
+            style={{ width: '100%', borderRadius: 12, padding: '10px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             onClick={handleLogout}
           >
-            🚪 {t('logout') || 'Logout'}
+            <LogOut size={16} />
+            <span>{t('logout') || 'Logout'}</span>
           </button>
         </div>
       </div>

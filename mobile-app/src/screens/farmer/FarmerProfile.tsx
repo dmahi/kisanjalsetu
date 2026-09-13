@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Tractor, Sprout, LogOut, ChevronRight, Bell } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import { notificationsApi } from '../../api/common';
 import { PageHeader, Card, useToast, Row, Segmented } from '../../components/ui';
+import EditProfile from '../../components/EditProfile';
 import { useLocale, LOCALES, type Locale } from '../../store/locale.store';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { isCapacitorNative } from '../../api/config';
@@ -32,12 +34,14 @@ export default function FarmerProfile() {
           <Row
             title={t('notifications')}
             sub="In-app alerts about your tubewells"
-            right={unread > 0 ? <span className="pill pending">{unread} new</span> : <span className="muted">›</span>}
+            right={unread > 0 ? <span className="pill pending">{unread} new</span> : <ChevronRight size={18} className="muted" />}
           />
         </Link>
         {isCapacitorNative() ? (
           <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>🔔 Mobile Push Alerts</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Bell size={16} /> Mobile Push Alerts
+            </span>
             <button
               className="btn btn-xs btn-secondary"
               onClick={async () => {
@@ -60,14 +64,18 @@ export default function FarmerProfile() {
         ) : null}
       </Card>
 
+      <EditProfile />
+
       {user?.role === 'farmer' && (
         <button className="card cta-become-owner" onClick={() => navigate('/farmer/become-owner')}>
-          <span className="cta-emoji">🚜</span>
+          <span className="cta-emoji">
+            <Tractor size={24} color="var(--brand-600)" />
+          </span>
           <span className="cta-copy">
             <span className="cta-title">{t('become_owner')}</span>
             <span className="muted" style={{ fontSize: '0.8rem' }}>{t('become_owner_hint')}</span>
           </span>
-          <span className="muted">›</span>
+          <ChevronRight size={20} className="muted" />
         </button>
       )}
 
@@ -81,15 +89,20 @@ export default function FarmerProfile() {
 
       <Card>
         <Row
-          title={<span>🌱 {t('my_fields')}</span>}
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Sprout size={18} color="var(--brand-500)" /> {t('my_fields')}
+            </span>
+          }
           sub="Manage your fields and crops"
           onClick={() => navigate('/farmer/fields')}
-          right={<span className="muted">›</span>}
+          right={<ChevronRight size={18} className="muted" />}
         />
       </Card>
 
-      <button className="btn btn-danger mt" onClick={() => void logout().then(() => navigate('/login', { replace: true }))}>
-        {t('logout')}
+      <button className="btn btn-danger mt" onClick={() => void logout().then(() => navigate('/login', { replace: true }))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <LogOut size={18} />
+        <span>{t('logout')}</span>
       </button>
     </div>
   );

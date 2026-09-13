@@ -24,7 +24,7 @@ export function TubewellSwitcher() {
       >
         {approved.map((t) => (
           <option key={t.tubewellId} value={t.tubewellId}>
-            {t.name} — ₹{formatINR(t.ratePerHour * 100)}/hr
+            {t.name} — {formatINR(t.ratePerHour * 100)}/hr
           </option>
         ))}
       </select>

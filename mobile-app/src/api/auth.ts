@@ -7,6 +7,7 @@ export interface User {
   role: 'admin' | 'farmer' | 'tubewell_owner' | 'operator';
   status: string;
   email?: string | null;
+  appName?: string | null;
   profileImage?: string | null;
 }
 
@@ -26,6 +27,6 @@ export const authApi = {
 
   me: (): Promise<User> => apiRequest({ url: '/users/me', method: 'GET' }),
 
-  updateProfile: (data: { name?: string; email?: string; profileImage?: string }): Promise<User> =>
+  updateProfile: (data: { name?: string; email?: string; appName?: string; profileImage?: string }): Promise<User> =>
     apiRequest({ url: '/users/me', method: 'PATCH', data }),
 };

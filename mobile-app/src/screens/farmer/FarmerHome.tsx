@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Droplets, Compass, Bell, Sprout } from 'lucide-react';
 import { paymentsApi, type DashboardTotals } from '../../api/payments';
 import { waterSessionApi, type WaterSession } from '../../api/sessions';
 import { waterRequestApi, type WaterRequest } from '../../api/requests';
@@ -163,20 +164,20 @@ export default function FarmerHome() {
       {/* Category Quick Action Tiles matching reference UI */}
       <div className="tile-grid">
         <div className="tile-item" onClick={() => navigate('/farmer/requests')}>
-          <div className="tile-icon-badge" style={{ background: '#e8f5e9', color: '#046a38' }}>💧</div>
-          <div className="tile-label">Request Water</div>
+          <div className="tile-icon-badge" style={{ background: '#e8f5e9', color: '#046a38', fontSize: '1.5rem' }}>💧</div>
+          <div className="tile-label" style={{ fontWeight: 800 }}>Request Water</div>
         </div>
         <div className="tile-item" onClick={() => navigate('/farmer/tubewells')}>
-          <div className="tile-icon-badge" style={{ background: '#e0f2f1', color: '#00796b' }}>🗺️</div>
-          <div className="tile-label">Tubewells</div>
+          <div className="tile-icon-badge" style={{ background: '#e0f2f1', color: '#00796b', fontSize: '1.5rem' }}>🗺️</div>
+          <div className="tile-label" style={{ fontWeight: 800 }}>Tubewells</div>
         </div>
         <div className="tile-item" onClick={() => navigate('/farmer/notifications')}>
-          <div className="tile-icon-badge" style={{ background: '#fff8e1', color: '#f57f17' }}>🔔</div>
-          <div className="tile-label">Alerts</div>
+          <div className="tile-icon-badge" style={{ background: '#fff8e1', color: '#f57f17', fontSize: '1.5rem' }}>🔔</div>
+          <div className="tile-label" style={{ fontWeight: 800 }}>Alerts</div>
         </div>
         <div className="tile-item" onClick={() => navigate('/farmer/fields')}>
-          <div className="tile-icon-badge" style={{ background: '#ede7f6', color: '#512da8' }}>🌱</div>
-          <div className="tile-label">My Fields</div>
+          <div className="tile-icon-badge" style={{ background: '#ede7f6', color: '#512da8', fontSize: '1.5rem' }}>🌾</div>
+          <div className="tile-label" style={{ fontWeight: 800 }}>My Fields</div>
         </div>
       </div>
 
