@@ -598,6 +598,254 @@ label {
   letter-spacing: 0.03em;
 }
 
+/* ---------- Creative Water Request & Queue Cards ---------- */
+
+/* Status summary pill bar */
+.status-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.status-summary-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 10px 12px;
+  text-align: center;
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease;
+}
+
+.status-summary-card .count {
+  font-size: 1.3rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.status-summary-card .lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 2px;
+}
+
+/* Base Request & Queue Card */
+.req-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(4, 106, 56, 0.12);
+  box-shadow: 0 4px 18px rgba(4, 106, 56, 0.06);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.req-card.dragging {
+  opacity: 0.55;
+  transform: scale(0.98);
+  border: 2px dashed var(--brand-500) !important;
+  box-shadow: 0 10px 30px rgba(4, 106, 56, 0.25) !important;
+}
+
+.req-card.drag-over {
+  border-top: 3px solid var(--brand-500) !important;
+  background: #e8f5e9 !important;
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  margin-right: 4px;
+  color: #889e90;
+  font-size: 1.4rem;
+  cursor: grab;
+  touch-action: none;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.drag-handle:hover, .drag-handle:active {
+  color: var(--brand-500);
+  background: var(--brand-soft);
+  cursor: grabbing;
+}
+
+.req-card:active {
+  transform: scale(0.995);
+}
+
+.req-card-pending {
+  border: 1.5px solid #ffe0b2;
+  background: linear-gradient(135deg, #ffffff 0%, #fffde7 100%);
+}
+
+.req-card-approved {
+  border: 1.5px solid #a5d6a7;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f8e9 100%);
+}
+
+.req-card-completed {
+  border: 1.5px solid #e0e0e0;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.04);
+}
+
+.req-card-rejected {
+  border: 1.5px solid #ffcdd2;
+  background: linear-gradient(135deg, #ffffff 0%, #ffebee 100%);
+}
+
+.req-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.req-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  color: var(--brand-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(4, 106, 56, 0.15);
+}
+
+.req-avatar-next {
+  background: linear-gradient(135deg, #ffecb3, #ffe082);
+  color: #d84315;
+  box-shadow: 0 3px 10px rgba(245, 124, 0, 0.25);
+}
+
+.phone-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--brand-soft);
+  color: var(--brand-700);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: 2px;
+}
+
+.balance-alert-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff3e0;
+  border: 1px solid #ffe0b2;
+  color: #d84315;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+/* Micro Action Buttons Bar for Queue Reordering */
+.queue-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.queue-action-pill {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #f4f6f4;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.queue-action-pill:hover:not(:disabled) {
+  background: var(--brand-soft);
+  color: var(--brand-700);
+  border-color: var(--brand-300);
+}
+
+.queue-action-pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.queue-action-pill.danger {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: #ffcdd2;
+}
+
+.queue-action-pill.danger:hover:not(:disabled) {
+  background: #ffe0b2;
+}
+
+/* Preset buttons for durations / times in Modal Sheets */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.preset-chip {
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: var(--cream);
+  border: 1.5px solid var(--line);
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-chip.active {
+  background: var(--brand-soft);
+  border-color: var(--brand-500);
+  color: var(--brand-700);
+  box-shadow: 0 2px 8px rgba(4, 106, 56, 0.15);
+}
+
+.cost-estimate-card {
+  background: linear-gradient(135deg, #e8f5e9, #e0f2f1);
+  border: 1px solid #b2dfdb;
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+
 .counter .counter-label {
   font-size: 0.8rem;
   opacity: 0.85;

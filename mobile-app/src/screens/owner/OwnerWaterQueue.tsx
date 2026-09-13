@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { waterRequestApi, type WaterRequest } from '../../api/requests';
 import { waterQueueApi, type WaterQueueEntry, type TubewellQueueResponse } from '../../api/queue';
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { formatINR } from '../../utils/formatters';
+import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../../utils/haptics';
 import {
   PageHeader,
   Card,
@@ -24,10 +25,22 @@ export default function OwnerWaterQueue() {
   const [queueData, setQueueData] = useState<TubewellQueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Drag & Drop State
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const touchDragIdxRef = useRef<number | null>(null);
+
   // Reject Modal State
   const [rejectingReqId, setRejectingReqId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const REJECTION_PRESETS = [
+    '⚡ Electricity Power Cut',
+    '🔧 Maintenance Work Scheduled',
+    '⏳ Queue Capacity Full Today',
+    '🌧️ High Rainfall / Canal Water Available',
+  ];
 
   const loadData = async () => {
     if (!ownerTubewellId) {
@@ -55,11 +68,14 @@ export default function OwnerWaterQueue() {
   }, [ownerTubewellId]);
 
   const handleAcceptRequest = async (id: string) => {
+    triggerHapticSelection();
     try {
       const res = await waterRequestApi.accept(id);
+      triggerHapticNotification('success');
       show(`Request accepted! Added to queue at position #${res.queuePosition}`, 'success');
       void loadData();
     } catch (err) {
+      triggerHapticNotification('error');
       show(apiErrorMessage(err), 'error');
     }
   };
@@ -68,6 +84,7 @@ export default function OwnerWaterQueue() {
     e.preventDefault();
     if (!rejectingReqId) return;
     setSubmitting(true);
+    triggerHaptic('medium');
     try {
       await waterRequestApi.reject(rejectingReqId, rejectionReason.trim() || undefined);
       show('Water request rejected', 'info');
@@ -81,49 +98,112 @@ export default function OwnerWaterQueue() {
     }
   };
 
-  const handleMoveUp = async (entryId: string) => {
-    try {
-      await waterQueueApi.moveUp(entryId);
-      void loadData();
-    } catch (err) {
-      show(apiErrorMessage(err), 'error');
-    }
-  };
-
-  const handleMoveDown = async (entryId: string) => {
-    try {
-      await waterQueueApi.moveDown(entryId);
-      void loadData();
-    } catch (err) {
-      show(apiErrorMessage(err), 'error');
-    }
-  };
-
-  const handleMoveToStart = async (entry: WaterQueueEntry) => {
-    const farmerName = entry.customerName || 'Farmer';
-    if (!window.confirm(`Move ${farmerName} to the start of the queue? This will make ${farmerName} the next farmer to receive water.`)) {
+  // Reorder queue via Drag and Drop
+  const handleReorder = async (fromIdx: number, toIdx: number) => {
+    const waitingList = queueData?.waiting || [];
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= waitingList.length || toIdx >= waitingList.length) {
       return;
     }
+
+    triggerHapticNotification('success');
+
+    // Optimistically update local state for instantaneous feedback
+    const movedItem = waitingList[fromIdx];
+    const newWaiting = [...waitingList];
+    newWaiting.splice(fromIdx, 1);
+    newWaiting.splice(toIdx, 0, movedItem);
+
+    const reorderedList = newWaiting.map((item, idx) => ({
+      ...item,
+      queuePosition: idx + 1,
+    }));
+
+    setQueueData((prev) => (prev ? { ...prev, waiting: reorderedList } : null));
+
     try {
-      await waterQueueApi.moveToStart(entry.id);
-      show(`Moved ${farmerName} to position #1`, 'success');
-      void loadData();
+      if (toIdx === 0) {
+        await waterQueueApi.moveToStart(movedItem.id);
+      } else if (toIdx === waitingList.length - 1) {
+        await waterQueueApi.moveToEnd(movedItem.id);
+      } else if (fromIdx > toIdx) {
+        for (let i = 0; i < (fromIdx - toIdx); i++) {
+          await waterQueueApi.moveUp(movedItem.id);
+        }
+      } else {
+        for (let i = 0; i < (toIdx - fromIdx); i++) {
+          await waterQueueApi.moveDown(movedItem.id);
+        }
+      }
+      show(`Reordered queue position for ${movedItem.customerName || 'Farmer'}`, 'success');
     } catch (err) {
       show(apiErrorMessage(err), 'error');
+    } finally {
+      void loadData();
     }
   };
 
-  const handleMoveToEnd = async (entryId: string) => {
-    try {
-      await waterQueueApi.moveToEnd(entryId);
-      show('Moved entry to end of queue', 'info');
-      void loadData();
-    } catch (err) {
-      show(apiErrorMessage(err), 'error');
+  // Drag & Drop event handlers (Desktop HTML5)
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDraggedIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+    triggerHaptic('light');
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIdx !== idx) {
+      setDragOverIdx(idx);
     }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (draggedIdx !== null && draggedIdx !== targetIdx) {
+      void handleReorder(draggedIdx, targetIdx);
+    }
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
+  // Touch Drag & Drop event handlers (Mobile)
+  const handleTouchStart = (idx: number) => {
+    touchDragIdxRef.current = idx;
+    setDraggedIdx(idx);
+    triggerHaptic('light');
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchDragIdxRef.current === null) return;
+    const touch = e.touches[0];
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!targetEl) return;
+    const cardEl = targetEl.closest('[data-queue-idx]');
+    if (cardEl) {
+      const overIdx = parseInt(cardEl.getAttribute('data-queue-idx') || '-1', 10);
+      if (overIdx >= 0 && overIdx !== dragOverIdx) {
+        setDragOverIdx(overIdx);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchDragIdxRef.current !== null && dragOverIdx !== null && touchDragIdxRef.current !== dragOverIdx) {
+      void handleReorder(touchDragIdxRef.current, dragOverIdx);
+    }
+    touchDragIdxRef.current = null;
+    setDraggedIdx(null);
+    setDragOverIdx(null);
   };
 
   const handleRemove = async (entry: WaterQueueEntry) => {
+    triggerHapticNotification('warning');
     const farmerName = entry.customerName || 'Farmer';
     if (!window.confirm(`Remove ${farmerName}'s request from the waiting queue?`)) return;
     try {
@@ -153,211 +233,319 @@ export default function OwnerWaterQueue() {
       <PageHeader title="Water Requests & Queue" subtitle="Manage incoming water requests and waiting queue" />
 
       {/* SECTION 1: PENDING WATER REQUESTS */}
-      <Card title={`Pending Requests (${requests.length})`}>
-        {loading ? (
+      {loading ? (
+        <Card title="Pending Requests">
           <Spinner />
-        ) : requests.length === 0 ? (
-          <p className="muted" style={{ fontSize: '0.85rem', margin: '8px 0' }}>
-            No pending water requests at this time.
-          </p>
-        ) : (
-          requests.map((req) => (
-            <div
-              key={req.id}
-              style={{
-                border: '1px solid #e0e0e0',
-                borderRadius: 10,
-                padding: 12,
-                marginBottom: 10,
-                backgroundColor: '#fff',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>
-                    {req.customerName || 'Farmer'} {req.customerPhone ? `(${req.customerPhone})` : ''}
+        </Card>
+      ) : requests.length === 0 ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 16px',
+            background: '#ffffff',
+            borderRadius: 16,
+            border: '1px solid rgba(4, 106, 56, 0.12)',
+            marginBottom: 14,
+            boxShadow: '0 2px 10px rgba(4, 106, 56, 0.05)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '1.1rem' }}>✨</span>
+            <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0b1c12' }}>
+              Pending Requests
+            </span>
+            <span style={{ fontSize: '0.82rem', color: '#557262' }}>
+              · All caught up!
+            </span>
+          </div>
+          <span
+            style={{
+              background: '#e8f5e9',
+              color: '#046a38',
+              padding: '3px 10px',
+              borderRadius: 12,
+              fontSize: '0.78rem',
+              fontWeight: 800,
+            }}
+          >
+            0 PENDING
+          </span>
+        </div>
+      ) : (
+        <Card
+          title={`Pending Requests (${requests.length})`}
+          action={<Pill tone="pending">{requests.length} NEED ACTION</Pill>}
+        >
+          {requests.map((req) => {
+            const farmerInitials = (req.customerName || 'Farmer')
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2);
+
+            const hoursStr = Math.round((req.requestedDurationMinutes / 60) * 10) / 10;
+
+            return (
+              <div key={req.id} className="req-card req-card-pending">
+                <div className="req-card-header">
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1 }}>
+                    <div className="req-avatar">{farmerInitials}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '1.02rem', color: '#0b1c12' }}>
+                        {req.customerName || 'Farmer'}
+                      </div>
+                      {req.customerPhone ? (
+                        <a
+                          href={`tel:${req.customerPhone}`}
+                          className="phone-link-chip"
+                          onClick={() => triggerHaptic('light')}
+                        >
+                          📞 {req.customerPhone}
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#555', marginTop: 2 }}>
-                    Field: <b>{req.fieldName || 'Field'}</b> {req.cropName ? `· Crop: ${req.cropName}` : ''}
+                  <Pill tone="pending">⏱️ {hoursStr} hrs</Pill>
+                </div>
+
+                <div style={{ marginTop: 12, fontSize: '0.88rem', color: '#2d4537', display: 'grid', gap: 4 }}>
+                  <div>
+                    🌱 Field: <b>{req.fieldName || 'Field'}</b>
+                    {req.cropName ? (
+                      <span style={{ color: '#046a38', fontWeight: 700, marginLeft: 6 }}>
+                        · 🌾 {req.cropName}
+                      </span>
+                    ) : null}
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#555', marginTop: 2 }}>
-                    Duration: <b>{Math.round(req.requestedDurationMinutes / 60 * 10) / 10} hours</b>
-                    {req.preferredStartTime ? ` · Time: ${req.preferredStartTime}` : ''}
-                  </div>
-                  {req.note ? (
-                    <div style={{ fontSize: '0.82rem', color: '#333', marginTop: 4, fontStyle: 'italic' }}>
-                      Note: "{req.note}"
+                  {req.preferredStartTime ? (
+                    <div>
+                      🕒 Preferred Start: <b>{req.preferredStartTime}</b>
                     </div>
                   ) : null}
-                  {req.pendingBalancePaise != null && req.pendingBalancePaise > 0 ? (
-                    <div style={{ fontSize: '0.82rem', color: '#d32f2f', fontWeight: 600, marginTop: 4 }}>
-                      ⚠️ Outstanding Balance: {formatINR(req.pendingBalancePaise)}
+                  {req.note ? (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        padding: '6px 10px',
+                        background: 'rgba(4, 106, 56, 0.05)',
+                        borderRadius: 10,
+                        fontSize: '0.82rem',
+                        fontStyle: 'italic',
+                        color: '#1c3e2b',
+                      }}
+                    >
+                      💬 "{req.note}"
                     </div>
                   ) : null}
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  style={{ color: '#d32f2f' }}
-                  onClick={() => setRejectingReqId(req.id)}
-                >
-                  Reject
-                </button>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={() => handleAcceptRequest(req.id)}
-                >
-                  Accept & Queue
-                </button>
+                {req.pendingBalancePaise != null && req.pendingBalancePaise > 0 ? (
+                  <div className="balance-alert-box">
+                    <span>⚠️</span>
+                    <div>
+                      Outstanding Balance: <b>{formatINR(req.pendingBalancePaise)}</b>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end' }}>
+                  <button
+                    className="queue-action-pill danger"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setRejectingReqId(req.id);
+                    }}
+                  >
+                    ❌ Reject
+                  </button>
+                  <button
+                    className="btn btn-sm btn-primary"
+                    style={{ borderRadius: 20, padding: '8px 18px' }}
+                    onClick={() => handleAcceptRequest(req.id)}
+                  >
+                    ✅ Accept & Queue
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
-        )}
-      </Card>
+            );
+          })}
+        </Card>
+      )}
 
       {/* SECTION 2: LIVE WATER QUEUE */}
       <Card title={`Tubewell Water Queue (${waitingEntries.length} waiting)`}>
         {activeEntry ? (
           <div
             style={{
-              backgroundColor: '#e8f5e9',
-              border: '1px solid #c8e6c9',
-              borderRadius: 10,
-              padding: 12,
-              marginBottom: 14,
+              background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+              border: '1.5px solid #81c784',
+              borderRadius: 16,
+              padding: 14,
+              marginBottom: 16,
+              boxShadow: '0 4px 14px rgba(46, 125, 50, 0.15)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 800, color: '#2e7d32', fontSize: '0.9rem' }}>
-                🟢 CURRENTLY ACTIVE WATER SESSION
+              <div style={{ fontWeight: 900, color: '#1b5e20', fontSize: '0.85rem', letterSpacing: '0.04em' }}>
+                🟢 LIVE WATERING IN PROGRESS
               </div>
               <Pill tone="paid">ACTIVE</Pill>
             </div>
-            <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: 4 }}>
-              {activeEntry.customerName} ({activeEntry.fieldName})
+            <div style={{ fontWeight: 800, fontSize: '1.05rem', marginTop: 6, color: '#0b1c12' }}>
+              👨‍🌾 {activeEntry.customerName} ({activeEntry.fieldName})
             </div>
+          </div>
+        ) : null}
+
+        {waitingEntries.length > 1 ? (
+          <div
+            style={{
+              padding: '8px 12px',
+              background: '#e8f5e9',
+              color: '#046a38',
+              borderRadius: 12,
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>💡 Drag & drop cards using the <b>⋮⋮ handle</b> to reorder queue position.</span>
           </div>
         ) : null}
 
         {waitingEntries.length === 0 ? (
           <EmptyState icon="📋" title="Queue is Empty" hint="No farmers currently waiting in queue." />
         ) : (
-          waitingEntries.map((entry, idx) => (
-            <div
-              key={entry.id}
-              style={{
-                border: '1px solid #e0e0e0',
-                borderRadius: 10,
-                padding: 12,
-                marginBottom: 10,
-                backgroundColor: idx === 0 ? '#fffde7' : '#ffffff',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      backgroundColor: idx === 0 ? '#fbc02d' : '#e0e0e0',
-                      color: idx === 0 ? '#000' : '#333',
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 800,
-                      fontSize: '0.9rem',
-                    }}
+          waitingEntries.map((entry, idx) => {
+            const isNext = idx === 0;
+            const isDragging = draggedIdx === idx;
+            const isDragOver = dragOverIdx === idx && draggedIdx !== idx;
+
+            return (
+              <div
+                key={entry.id}
+                data-queue-idx={idx}
+                draggable={true}
+                onDragStart={(e) => handleDragStart(e, idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDrop={(e) => handleDrop(e, idx)}
+                onDragEnd={handleDragEnd}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className={`req-card ${isNext ? 'req-card-approved' : ''} ${isDragging ? 'dragging' : ''} ${
+                  isDragOver ? 'drag-over' : ''
+                }`}
+                style={
+                  isNext && !isDragging && !isDragOver
+                    ? {
+                        border: '2px solid #f57c00',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #fff8e0 100%)',
+                      }
+                    : undefined
+                }
+              >
+                <div className="req-card-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                    {/* Drag Handle */}
+                    <div
+                      className="drag-handle"
+                      title="Drag to reorder"
+                      onTouchStart={() => handleTouchStart(idx)}
+                    >
+                      ⋮⋮
+                    </div>
+
+                    <div className={`req-avatar ${isNext ? 'req-avatar-next' : ''}`}>
+                      {isNext ? '🥇' : `#${entry.queuePosition}`}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '1.02rem', color: '#0b1c12' }}>
+                        {entry.customerName || 'Farmer'}
+                        {isNext ? (
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 900,
+                              background: '#f57c00',
+                              color: '#fff',
+                              padding: '2px 8px',
+                              borderRadius: 10,
+                              marginLeft: 8,
+                            }}
+                          >
+                            NEXT
+                          </span>
+                        ) : null}
+                      </div>
+                      <div style={{ fontSize: '0.84rem', color: '#3b5446', marginTop: 2 }}>
+                        🌱 {entry.fieldName || 'Field'}
+                        {entry.cropName ? ` · 🌾 ${entry.cropName}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clean Remove Button on Top Right */}
+                  <button
+                    className="queue-action-pill danger"
+                    onClick={() => handleRemove(entry)}
+                    style={{ padding: '6px 12px', fontSize: '0.82rem', flexShrink: 0 }}
                   >
-                    #{entry.queuePosition}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '1rem' }}>
-                      {entry.customerName || 'Farmer'}
-                      {idx === 0 ? <span style={{ fontSize: '0.75rem', color: '#f57f17', marginLeft: 6 }}>(NEXT)</span> : null}
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: '#555' }}>
-                      {entry.fieldName || 'Field'}{entry.cropName ? ` · ${entry.cropName}` : ''}
-                    </div>
-                  </div>
+                    🗑️ Remove
+                  </button>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 6,
-                  marginTop: 10,
-                  paddingTop: 8,
-                  borderTop: '1px dashed #eee',
-                }}
-              >
-                <button
-                  className="btn btn-sm btn-ghost"
-                  disabled={idx === 0}
-                  onClick={() => handleMoveUp(entry.id)}
-                  title="Move Up"
-                >
-                  ↑ Up
-                </button>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  disabled={idx === waitingEntries.length - 1}
-                  onClick={() => handleMoveDown(entry.id)}
-                  title="Move Down"
-                >
-                  ↓ Down
-                </button>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  disabled={idx === 0}
-                  onClick={() => handleMoveToStart(entry)}
-                >
-                  Move Start
-                </button>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  disabled={idx === waitingEntries.length - 1}
-                  onClick={() => handleMoveToEnd(entry.id)}
-                >
-                  Move End
-                </button>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  style={{ color: '#d32f2f' }}
-                  onClick={() => handleRemove(entry)}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </Card>
 
-      {/* Reject Request Modal */}
+      {/* Reject Request Modal Sheet */}
       <ModalSheet
         open={Boolean(rejectingReqId)}
         onClose={() => setRejectingReqId(null)}
         title="Reject Water Request"
       >
         <form onSubmit={handleRejectSubmit}>
-          <label>Rejection Reason (Optional)</label>
+          <label>Select Reason Preset</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 12 }}>
+            {REJECTION_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className={`preset-chip ${rejectionReason === preset ? 'active' : ''}`}
+                style={{ textAlign: 'left', padding: '10px 14px' }}
+                onClick={() => {
+                  triggerHapticSelection();
+                  setRejectionReason(preset);
+                }}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          <label>Or Enter Custom Reason</label>
           <textarea
-            rows={3}
-            placeholder="e.g. Tubewell maintenance scheduled, electricity power cut"
+            rows={2}
+            placeholder="Type reason here..."
             value={rejectionReason}
             onChange={(e) => setRejectionReason(e.target.value)}
           />
-          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button
               type="button"
               className="btn btn-ghost"
-              onClick={() => setRejectingReqId(null)}
+              onClick={() => {
+                triggerHaptic('light');
+                setRejectingReqId(null);
+              }}
             >
               Cancel
             </button>
@@ -370,3 +558,4 @@ export default function OwnerWaterQueue() {
     </div>
   );
 }
+

@@ -16,6 +16,9 @@ import {
   ModalSheet,
 } from '../../components/ui';
 import { formatDateTime, formatDuration, formatINR } from '../../utils/formatters';
+import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../../utils/haptics';
+import { shareWaterReceipt } from '../../utils/native';
+import { addWaterTurnToCalendar } from '../../utils/calendar';
 
 export default function FarmerWaterRequests() {
   const navigate = useNavigate();
@@ -38,6 +41,9 @@ export default function FarmerWaterRequests() {
   const [preferredStartTime, setPreferredStartTime] = useState('');
   const [note, setNote] = useState('');
   const [fieldsLoading, setFieldsLoading] = useState(false);
+
+  const DURATION_PRESETS = ['1', '2', '3', '4'];
+  const TIME_PRESETS = ['ASAP', 'Morning 6 AM', 'Afternoon 12 PM', 'Evening 5 PM'];
 
   const selectedTubewell = tubewells.find((tw) => tw.tubewellId === (selectedTwId || farmerTubewellId));
 
@@ -94,6 +100,7 @@ export default function FarmerWaterRequests() {
     }
 
     setSubmitting(true);
+    triggerHaptic('medium');
     try {
       await waterRequestApi.create({
         tubewellId: twId,
@@ -103,6 +110,7 @@ export default function FarmerWaterRequests() {
         preferredStartTime: preferredStartTime.trim() || undefined,
         note: note.trim() || undefined,
       });
+      triggerHapticNotification('success');
       show(t('request_submitted'), 'success');
       setModalOpen(false);
       setFieldId('');
@@ -110,6 +118,7 @@ export default function FarmerWaterRequests() {
       setNote('');
       void loadRequests();
     } catch (err) {
+      triggerHapticNotification('error');
       show(apiErrorMessage(err), 'error');
     } finally {
       setSubmitting(false);
@@ -117,6 +126,7 @@ export default function FarmerWaterRequests() {
   };
 
   const handleCancelRequest = async (id: string) => {
+    triggerHapticNotification('warning');
     if (!window.confirm(t('cancel_request_confirm'))) return;
     try {
       await waterRequestApi.cancel(id);
@@ -127,6 +137,48 @@ export default function FarmerWaterRequests() {
     }
   };
 
+  const handleAddToCalendar = async (req: WaterRequest) => {
+    triggerHapticSelection();
+    try {
+      await addWaterTurnToCalendar({
+        title: `💧 Water Turn: ${req.fieldName || 'Field'} (${req.tubewellName || 'Tubewell'})`,
+        description: `Water session for crop: ${req.cropName || 'N/A'}. Duration: ${req.requestedDurationMinutes} mins.`,
+        startTime: new Date(Date.now() + 15 * 60 * 1000),
+        durationMinutes: req.requestedDurationMinutes,
+      });
+      show('Water turn added to your calendar!', 'success');
+    } catch (err) {
+      show('Could not add to calendar', 'error');
+    }
+  };
+
+  const handleShareReceipt = async (req: WaterRequest) => {
+    triggerHapticSelection();
+    try {
+      const receiptText = [
+        `📄 *KisanJalSetu Water Receipt*`,
+        `👨‍🌾 Farmer: ${req.customerName || 'Farmer'}`,
+        `🌱 Field: ${req.fieldName || 'Field'} (${req.cropName || 'Crop'})`,
+        `💧 Tubewell: ${req.tubewellName || 'Tubewell'}`,
+        `⏱️ Duration: ${formatDuration(req.actualDurationMinutes || req.requestedDurationMinutes)}`,
+        `💰 Total Bill: ${req.finalAmountPaise != null ? formatINR(req.finalAmountPaise) : 'N/A'}`,
+        `🕒 Date: ${formatDateTime(req.createdAt)}`,
+      ].join('\n');
+
+      await shareWaterReceipt({
+        title: '💧 Water Receipt - KisanJalSetu',
+        text: receiptText,
+      });
+    } catch (err) {
+      show('Receipt sharing failed', 'error');
+    }
+  };
+
+  // Stats calculation
+  const pendingCount = requests.filter((r) => r.status === 'pending').length;
+  const approvedCount = requests.filter((r) => r.status === 'accepted').length;
+  const completedCount = requests.filter((r) => r.status === 'completed').length;
+
   return (
     <div className="page">
       {toast}
@@ -136,7 +188,9 @@ export default function FarmerWaterRequests() {
         right={
           <button
             className="btn btn-sm btn-primary"
+            style={{ borderRadius: 20, boxShadow: '0 4px 14px rgba(4,106,56,0.3)' }}
             onClick={() => {
+              triggerHapticSelection();
               if (farmerTubewellId) setSelectedTwId(farmerTubewellId);
               setModalOpen(true);
             }}
@@ -145,6 +199,22 @@ export default function FarmerWaterRequests() {
           </button>
         }
       />
+
+      {/* Quick Summary Pill Bar */}
+      <div className="status-summary-bar">
+        <div className="status-summary-card">
+          <div className="count" style={{ color: '#f57c00' }}>{pendingCount}</div>
+          <div className="lbl">PENDING</div>
+        </div>
+        <div className="status-summary-card">
+          <div className="count" style={{ color: '#046a38' }}>{approvedCount}</div>
+          <div className="lbl">APPROVED</div>
+        </div>
+        <div className="status-summary-card">
+          <div className="count" style={{ color: '#0277bd' }}>{completedCount}</div>
+          <div className="lbl">COMPLETED</div>
+        </div>
+      </div>
 
       {loading ? (
         <Spinner />
@@ -155,86 +225,180 @@ export default function FarmerWaterRequests() {
           hint={t('no_water_requests_hint')}
         />
       ) : (
-        requests.map((req) => (
-          <div key={req.id} style={{ marginBottom: 12 }}>
-            <Card>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        requests.map((req) => {
+          const isPending = req.status === 'pending';
+          const isApproved = req.status === 'accepted';
+          const isCompleted = req.status === 'completed';
+          const isRejected = req.status === 'rejected';
+
+          const cardClass = isPending
+            ? 'req-card-pending'
+            : isApproved
+              ? 'req-card-approved'
+              : isCompleted
+                ? 'req-card-completed'
+                : isRejected
+                  ? 'req-card-rejected'
+                  : '';
+
+          return (
+            <div key={req.id} className={`req-card ${cardClass}`}>
+              <div className="req-card-header">
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>
-                    {req.fieldName || t('field')}{req.cropName ? ` (${req.cropName})` : ''}
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0b1c12' }}>
+                    🌱 {req.fieldName || t('field')}
+                    {req.cropName ? (
+                      <span style={{ color: '#046a38', fontWeight: 700, marginLeft: 6 }}>
+                        · 🌾 {req.cropName}
+                      </span>
+                    ) : null}
                   </div>
-                  <div style={{ fontSize: '0.82rem', color: '#666', marginTop: 2 }}>
-                    {req.tubewellName || t('tubewell')} ·{' '}
-                    {req.status === 'completed' && req.actualDurationMinutes != null
+                  <div style={{ fontSize: '0.84rem', color: '#3b5446', marginTop: 3 }}>
+                    💧 {req.tubewellName || t('tubewell')} ·{' '}
+                    {isCompleted && req.actualDurationMinutes != null
                       ? t('actual_duration', { duration: formatDuration(req.actualDurationMinutes) })
-                      : t('duration_hours', { hours: String(Math.round(req.requestedDurationMinutes / 60 * 10) / 10) })}
-                    {req.status === 'completed' && req.finalAmountPaise != null
-                      ? ` · ${t('total')}: ${formatINR(req.finalAmountPaise)}`
-                      : ''}
-                  </div>
-                  {req.note ? (
-                    <div style={{ fontSize: '0.82rem', color: '#444', marginTop: 4, fontStyle: 'italic' }}>
-                      "{req.note}"
-                    </div>
-                  ) : null}
-                  {req.rejectionReason ? (
-                    <div style={{ fontSize: '0.82rem', color: '#d32f2f', marginTop: 4 }}>
-                      {t('rejection_reason', { reason: req.rejectionReason })}
-                    </div>
-                  ) : null}
-                  <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 6 }}>
-                    {t('requested_on', { time: formatDateTime(req.createdAt) })}
+                      : t('duration_hours', { hours: String(Math.round((req.requestedDurationMinutes / 60) * 10) / 10) })}
                   </div>
                 </div>
+
                 <div style={{ textAlign: 'right' }}>
                   <Pill
                     tone={
-                      req.status === 'accepted'
+                      isApproved
                         ? 'paid'
-                        : req.status === 'pending'
+                        : isPending
                           ? 'pending'
-                          : req.status === 'rejected'
+                          : isRejected
                             ? 'danger'
                             : 'neutral'
                     }
                   >
                     {statusWord(req.status).toUpperCase()}
                   </Pill>
-                  {req.status === 'accepted' && req.queuePosition != null ? (
+                  {isApproved && req.queuePosition != null ? (
                     <div
                       style={{
                         marginTop: 6,
-                        backgroundColor: '#e3f2fd',
-                        color: '#1565c0',
-                        padding: '4px 8px',
-                        borderRadius: 6,
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
+                        background: 'linear-gradient(135deg, #046a38, #058547)',
+                        color: '#ffffff',
+                        padding: '4px 10px',
+                        borderRadius: 12,
+                        fontSize: '0.8rem',
+                        fontWeight: 800,
+                        boxShadow: '0 2px 8px rgba(4,106,56,0.25)',
                       }}
                     >
-                      {t('queue_pos', { pos: req.queuePosition })}
+                      ✨ {t('queue_pos', { pos: req.queuePosition })}
                     </div>
                   ) : null}
                 </div>
               </div>
 
-              {req.status === 'pending' ? (
-                <div style={{ marginTop: 12, borderTop: '1px solid #eee', paddingTop: 8, textAlign: 'right' }}>
-                  <button
-                    className="btn btn-sm btn-ghost"
-                    style={{ color: '#d32f2f' }}
-                    onClick={() => handleCancelRequest(req.id)}
-                  >
-                    {t('cancel_request')}
-                  </button>
+              {/* Extra Details */}
+              {req.note ? (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: '6px 10px',
+                    background: 'rgba(0,0,0,0.03)',
+                    borderRadius: 10,
+                    fontSize: '0.82rem',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  💬 "{req.note}"
                 </div>
               ) : null}
-            </Card>
-          </div>
-        ))
+
+              {req.rejectionReason ? (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: '8px 12px',
+                    background: '#ffebee',
+                    border: '1px solid #ffcdd2',
+                    borderRadius: 10,
+                    fontSize: '0.82rem',
+                    color: '#c62828',
+                    fontWeight: 700,
+                  }}
+                >
+                  ❌ {t('rejection_reason', { reason: req.rejectionReason })}
+                </div>
+              ) : null}
+
+              {isCompleted && req.finalAmountPaise != null ? (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '10px 14px',
+                    background: '#f1f8e9',
+                    border: '1px solid #c8e6c9',
+                    borderRadius: 12,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#2e7d32' }}>
+                    Total Water Bill
+                  </span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#1b5e20' }}>
+                    {formatINR(req.finalAmountPaise)}
+                  </span>
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: 12,
+                  paddingTop: 8,
+                  borderTop: '1px dashed #e0e0e0',
+                }}
+              >
+                <div style={{ fontSize: '0.76rem', color: '#688273' }}>
+                  🕒 {formatDateTime(req.createdAt)}
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {isApproved ? (
+                    <button
+                      className="queue-action-pill"
+                      onClick={() => handleAddToCalendar(req)}
+                    >
+                      📅 Add to Calendar
+                    </button>
+                  ) : null}
+
+                  {isCompleted ? (
+                    <button
+                      className="queue-action-pill"
+                      style={{ background: '#e8f5e9', color: '#046a38', borderColor: '#a5d6a7' }}
+                      onClick={() => handleShareReceipt(req)}
+                    >
+                      💬 Share Receipt
+                    </button>
+                  ) : null}
+
+                  {isPending ? (
+                    <button
+                      className="queue-action-pill danger"
+                      onClick={() => handleCancelRequest(req.id)}
+                    >
+                      ❌ {t('cancel_request')}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })
       )}
 
-      {/* New Water Request Modal */}
+      {/* New Water Request Modal Sheet */}
       <ModalSheet open={modalOpen} onClose={() => setModalOpen(false)} title={t('request_water')}>
         <form onSubmit={handleSubmitRequest}>
           <label>{t('select_tubewell')}</label>
@@ -242,7 +406,7 @@ export default function FarmerWaterRequests() {
             <option value="">{t('choose_tubewell')}</option>
             {tubewells.map((tw) => (
               <option key={tw.tubewellId} value={tw.tubewellId}>
-                {tw.name}
+                💧 {tw.name}
               </option>
             ))}
           </select>
@@ -267,7 +431,7 @@ export default function FarmerWaterRequests() {
               <option value="">{t('select_field_ph')}</option>
               {fields.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name} {f.crop ? `(${f.crop}) ` : ''}{f.area ? `[${f.area} ${f.areaUnit}]` : ''}
+                  🌱 {f.name} {f.crop ? `(${f.crop}) ` : ''}{f.area ? `[${f.area} ${f.areaUnit}]` : ''}
                 </option>
               ))}
             </select>
@@ -282,15 +446,47 @@ export default function FarmerWaterRequests() {
           />
 
           <label>{t('requested_duration_hours')}</label>
+          <div className="preset-grid">
+            {DURATION_PRESETS.map((hrs) => (
+              <button
+                key={hrs}
+                type="button"
+                className={`preset-chip ${durationHours === hrs ? 'active' : ''}`}
+                onClick={() => {
+                  triggerHapticSelection();
+                  setDurationHours(hrs);
+                }}
+              >
+                ⏱️ {hrs} hr{hrs !== '1' ? 's' : ''}
+              </button>
+            ))}
+          </div>
           <input
             type="number"
             step="0.5"
             min="0.5"
+            placeholder="Custom hours"
             value={durationHours}
             onChange={(e) => setDurationHours(e.target.value)}
           />
 
           <label>{t('preferred_time')}</label>
+          <div className="preset-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+            {TIME_PRESETS.map((timePreset) => (
+              <button
+                key={timePreset}
+                type="button"
+                className={`preset-chip ${preferredStartTime === timePreset ? 'active' : ''}`}
+                style={{ padding: '8px 6px', fontSize: '0.8rem' }}
+                onClick={() => {
+                  triggerHapticSelection();
+                  setPreferredStartTime(timePreset);
+                }}
+              >
+                {timePreset}
+              </button>
+            ))}
+          </div>
           <input
             type="text"
             placeholder={t('preferred_time_hint')}
@@ -306,12 +502,28 @@ export default function FarmerWaterRequests() {
             onChange={(e) => setNote(e.target.value)}
           />
 
+          <div className="cost-estimate-card">
+            <div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#046a38', textTransform: 'uppercase' }}>
+                Estimated Water Session
+              </div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0b1c12', marginTop: 2 }}>
+                ⏱️ {durationHours || '0'} Hours Water Supply
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.75rem', color: '#688273' }}>Status</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#046a38' }}>Instant Queue</div>
+            </div>
+          </div>
+
           <button
             type="submit"
             className="btn btn-primary btn-lg mt"
+            style={{ borderRadius: 20 }}
             disabled={submitting || !fieldId || fields.length === 0}
           >
-            {submitting ? t('submitting_request') : t('submit_request')}
+            {submitting ? t('submitting_request') : `🚀 ${t('submit_request')}`}
           </button>
         </form>
       </ModalSheet>
