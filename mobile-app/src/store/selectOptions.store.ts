@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useMemo } from 'react';
 import { selectOptionsApi, type SelectOptionsMap, type SelectOption } from '../api/selectOptions';
 
 type SelectOptionsState = {
@@ -49,8 +50,7 @@ export function optionLabel(code: string, options: SelectOption[], locale: strin
 }
 
 export function useSelectOptions(categories: string[]) {
-  return useSelectOptionsStore((s) => ({
-    options: s.data,
-    loading: s.loading,
-  }));
+  const options = useSelectOptionsStore((s) => s.data);
+  const loading = useSelectOptionsStore((s) => s.loading);
+  return useMemo(() => ({ options, loading }), [options, loading]);
 }

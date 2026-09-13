@@ -2,21 +2,25 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { waterSessionApi, type WaterSession } from '../../api/sessions';
 import { ownerPaymentsApi, type PaymentRequest } from '../../api/payments';
-import { ownerCustomerApi } from '../../api/tubewells';
+import { ownerCustomerApi, tubewellApi, type Tubewell } from '../../api/tubewells';
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, Pill, ModalSheet } from '../../components/ui';
-import { formatINR, formatDuration, formatDateTime, toLocalInput } from '../../utils/formatters';
+import { formatINR, formatDuration, formatDateTime } from '../../utils/formatters';
 import { useDynamicOptions } from '../../hooks/useDynamicOptions';
+import { ChevronLeft } from 'lucide-react';
 
 export default function OwnerCustomerDetail() {
   const { customerId } = useParams<{ customerId: string }>();
   const ownerTubewellId = useSelectionStore((s) => s.ownerTubewellId);
+  const setOwnerTubewell = useSelectionStore((s) => s.setOwnerTubewell);
   const { show, toast } = useToast();
   const t = useLocale((s) => s.t);
   const { options: dynOptions } = useDynamicOptions(['payment_method']);
   const payMethods = dynOptions['payment_method'] || [];
+
+  const [tubewells, setTubewells] = useState<Tubewell[]>([]);
   const [sessions, setSessions] = useState<WaterSession[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [customerName, setCustomerName] = useState('');
@@ -32,20 +36,38 @@ export default function OwnerCustomerDetail() {
     }
   }, [payMethods]);
 
-  const load = async () => {
-    if (!ownerTubewellId || !customerId) {
-      setLoading(false);
-      return;
-    }
+  // Load tubewells once & ensure active selection
+  useEffect(() => {
+    let cancelled = false;
+    tubewellApi
+      .mine()
+      .then(async (list) => {
+        if (cancelled) return;
+        setTubewells(list || []);
+        const active = list?.find((t) => t.status === 'active') || list?.[0];
+        const selected = ownerTubewellId && list?.some((t) => t.id === ownerTubewellId) ? ownerTubewellId : active?.id ?? null;
+        if (selected && selected !== ownerTubewellId) await setOwnerTubewell(selected);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loadData = async (twId: string, custId: string) => {
+    setLoading(true);
     try {
       const [sess, reqs, customers] = await Promise.all([
-        waterSessionApi.listForOwner(ownerTubewellId, { customerId }),
-        ownerPaymentsApi.requests(ownerTubewellId, 'pending'),
-        ownerCustomerApi.list(ownerTubewellId),
+        waterSessionApi.listForOwner(twId, { customerId: custId }),
+        ownerPaymentsApi.requests(twId, 'pending').catch(() => []),
+        ownerCustomerApi.list(twId).catch(() => []),
       ]);
       setSessions(sess || []);
-      setRequests((reqs || []).filter((r) => r.customerId === customerId));
-      setCustomerName(customers?.find((c) => c.customerId === customerId)?.name ?? 'Customer');
+      setRequests((reqs || []).filter((r) => String(r.customerId) === String(custId)));
+      const found = customers?.find(
+        (c) => String(c.customerId) === String(custId) || String(c.membershipId) === String(custId),
+      );
+      setCustomerName(found?.name ?? 'Customer');
     } catch (err) {
       show(apiErrorMessage(err), 'error');
     } finally {
@@ -54,8 +76,16 @@ export default function OwnerCustomerDetail() {
   };
 
   useEffect(() => {
-    void load();
-  }, [ownerTubewellId, customerId]);
+    if (ownerTubewellId && customerId) {
+      void loadData(ownerTubewellId, customerId);
+    } else if (!ownerTubewellId && tubewells.length > 0 && customerId) {
+      const first = tubewells[0].id;
+      void setOwnerTubewell(first);
+      void loadData(first, customerId);
+    } else {
+      setLoading(false);
+    }
+  }, [ownerTubewellId, customerId, tubewells]);
 
   const totals = sessions.reduce(
     (acc, s) => {
@@ -74,7 +104,7 @@ export default function OwnerCustomerDetail() {
     try {
       await ownerPaymentsApi.approveRequest(id);
       show(t('approve_ok'), 'success');
-      void load();
+      if (ownerTubewellId && customerId) void loadData(ownerTubewellId, customerId);
     } catch (err) {
       show(apiErrorMessage(err), 'error');
     }
@@ -84,7 +114,7 @@ export default function OwnerCustomerDetail() {
     try {
       await ownerPaymentsApi.rejectRequest(id);
       show(t('reject_ok'), 'info');
-      void load();
+      if (ownerTubewellId && customerId) void loadData(ownerTubewellId, customerId);
     } catch (err) {
       show(apiErrorMessage(err), 'error');
     }
@@ -104,7 +134,7 @@ export default function OwnerCustomerDetail() {
       setPaySheet(false);
       setAmount('');
       show(t('payment_of', { amount: formatINR(amt) }), 'success');
-      void load();
+      if (ownerTubewellId && customerId) void loadData(ownerTubewellId, customerId);
     } catch (err) {
       show(apiErrorMessage(err), 'error');
     } finally {
@@ -126,59 +156,74 @@ export default function OwnerCustomerDetail() {
   return (
     <div className="page">
       {toast}
-      <Link to="/owner/customers" className="btn btn-sm btn-ghost" style={{ width: 'auto' }}>← {t('cancel')}</Link>
-      <PageHeader title={customerName} subtitle="Customer account & water history" />
 
-      <div className="stat-row">
-        <Stat label={t('total_water_minutes')} value={formatDuration(totals.minutes)} />
-        <Stat label={t('total_billed')} value={formatINR(totals.billed)} />
-      </div>
-      <div className="stat-row">
-        <Stat label={t('paid')} value={formatINR(totals.paid)} tone="green" />
-        <Stat label={t('pending')} value={formatINR(pending)} tone={pending > 0 ? 'red' : 'green'} />
-      </div>
 
-      {requests.length > 0 ? (
-        <Card title={`${t('payment_requests')} (needs confirmation)`}>
-          {requests.map((r) => (
-            <Row
-              key={r.id}
-              title={formatINR(r.amountPaise)}
-              sub={`Requested ${formatDateTime(r.requestedAt)}${r.notes ? ` · ${r.notes}` : ''}`}
-              right={
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-sm btn-primary" onClick={() => void approveRequest(r.id)}>{t('approve')}</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => void rejectRequest(r.id)}>{t('reject')}</button>
-                </div>
-              }
-            />
-          ))}
-        </Card>
-      ) : null}
+      <PageHeader
+        title={customerName || 'Customer Account'}
+        subtitle="Customer account & water session history"
+      />
 
-      <Card title={`Water history (${sessions.length})`} action={<button className="btn btn-sm btn-primary" onClick={() => setPaySheet(true)}>{t('record_payment_btn')}</button>}>
-        {loading ? (
-          <Spinner />
-        ) : sessions.length === 0 ? (
-          <EmptyState icon="💧" title={t('no_sessions')} />
-        ) : (
-          sessions.map((s) => (
-            <Row
-              key={s.id}
-              title={`${formatDateTime(s.startDatetime)}${s.endDatetime ? ` → ${new Date(s.endDatetime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
-              sub={s.durationMinutes != null ? formatDuration(s.durationMinutes) : `Running · ${formatINR(s.finalAmountPaise)}`}
-              right={
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
-                  <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending'}>
-                    {statusLabel(s).toUpperCase()}
-                  </Pill>
-                </div>
-              }
-            />
-          ))
-        )}
-      </Card>
+      {loading ? (
+        <Spinner />
+      ) : (
+        <>
+          <div className="stat-row">
+            <Stat label={t('total_water_minutes')} value={formatDuration(totals.minutes)} />
+            <Stat label={t('total_billed')} value={formatINR(totals.billed)} />
+          </div>
+          <div className="stat-row">
+            <Stat label={t('paid')} value={formatINR(totals.paid)} tone="green" />
+            <Stat label={t('pending')} value={formatINR(pending)} tone={pending > 0 ? 'red' : 'green'} />
+          </div>
+
+          {requests.length > 0 ? (
+            <Card title={`${t('payment_requests')} (needs confirmation)`}>
+              {requests.map((r) => (
+                <Row
+                  key={r.id}
+                  title={formatINR(r.amountPaise)}
+                  sub={`Requested ${formatDateTime(r.requestedAt)}${r.notes ? ` · ${r.notes}` : ''}`}
+                  right={
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-sm btn-primary" onClick={() => void approveRequest(r.id)}>{t('approve')}</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => void rejectRequest(r.id)}>{t('reject')}</button>
+                    </div>
+                  }
+                />
+              ))}
+            </Card>
+          ) : null}
+
+          <Card
+            title={`Water history (${sessions.length})`}
+            action={
+              <button className="btn btn-sm btn-primary" onClick={() => setPaySheet(true)}>
+                {t('record_payment_btn')}
+              </button>
+            }
+          >
+            {sessions.length === 0 ? (
+              <EmptyState icon="💧" title={t('no_sessions')} />
+            ) : (
+              sessions.map((s) => (
+                <Row
+                  key={s.id}
+                  title={`${formatDateTime(s.startDatetime)}${s.endDatetime ? ` → ${new Date(s.endDatetime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
+                  sub={s.durationMinutes != null ? formatDuration(s.durationMinutes) : `Running · ${formatINR(s.finalAmountPaise)}`}
+                  right={
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
+                      <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending'}>
+                        {statusLabel(s).toUpperCase()}
+                      </Pill>
+                    </div>
+                  }
+                />
+              ))
+            )}
+          </Card>
+        </>
+      )}
 
       <ModalSheet open={paySheet} onClose={() => setPaySheet(false)} title={t('record_payment')}>
         <form onSubmit={recordPayment}>

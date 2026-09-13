@@ -43,7 +43,12 @@ export default function RefreshablePage({
   const finishTimer = useRef<number | null>(null);
   const crossedTimer = useRef<number | null>(null);
 
-  const atTop = () => (document.scrollingElement?.scrollTop ?? window.scrollY) <= 0;
+  const atTop = () => {
+    if (zoneRef.current) {
+      return zoneRef.current.scrollTop <= 0;
+    }
+    return (document.scrollingElement?.scrollTop ?? window.scrollY) <= 0;
+  };
 
   const setPullPx = (px: number) => {
     gesture.current.pull = px;
@@ -54,7 +59,11 @@ export default function RefreshablePage({
     if (refreshing) return;
     setRefreshing(true);
     setPullPx(Math.min(threshold, MAX_PULL));
-    window.scrollTo({ top: 0, behavior: 'auto' });
+    if (zoneRef.current) {
+      zoneRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
     const stop = new Promise<void>((resolve) => {
       const timer = window.setTimeout(resolve, minSpinnerMs);
       finishTimer.current = timer;
