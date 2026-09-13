@@ -3,8 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { waterTurnAlertsApi, type WaterTurnAlert } from '../../api/waterTurnAlerts';
 import { apiErrorMessage } from '../../api/client';
 import { PageHeader, Card, Spinner, Pill, useToast } from '../../components/ui';
-
-const NOT_READY_REASONS = ['Finishing up', 'Not at the pump yet', 'Field not ready', 'Water not needed right now', 'Other'];
+import { useLocale } from '../../store/locale.store';
+import { useDynamicOptions } from '../../hooks/useDynamicOptions';
 
 function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -16,6 +16,7 @@ function formatCountdown(ms: number): string {
 export default function FarmerWaterTurnAlert() {
   const navigate = useNavigate();
   const { show, toast } = useToast();
+  const t = useLocale((s) => s.t);
   const [params] = useSearchParams();
   const alertId = params.get('alert');
   const [focused, setFocused] = useState<WaterTurnAlert | null>(null);
@@ -23,8 +24,11 @@ export default function FarmerWaterTurnAlert() {
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState<'ready' | 'not_ready' | null>(null);
   const [showNotReady, setShowNotReady] = useState(false);
-  const [notReadyReason, setNotReadyReason] = useState(NOT_READY_REASONS[0]);
+  const [notReadyReason, setNotReadyReason] = useState('');
   const [now, setNow] = useState(Date.now());
+
+  const { options } = useDynamicOptions(['not_ready_reason']);
+  const notReadyOptions = options['not_ready_reason'] || [];
 
   const load = async (explicitId?: string) => {
     try {
@@ -49,6 +53,13 @@ export default function FarmerWaterTurnAlert() {
     void load(alertId || undefined);
   }, [alertId]);
 
+  // Preselect the first not-ready reason once options arrive.
+  useEffect(() => {
+    if (!notReadyReason && notReadyOptions.length > 0) {
+      setNotReadyReason(notReadyOptions[0].code);
+    }
+  }, [notReadyOptions, notReadyReason]);
+
   // Keep the countdown and active alert fresh while the screen is open.
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 1000);
@@ -65,15 +76,20 @@ export default function FarmerWaterTurnAlert() {
     return new Date(focused.responseDeadlineAt).getTime() - now;
   }, [focused, now]);
 
+  const selectedReasonLabel = () => {
+    const found = notReadyOptions.find((o) => o.code === notReadyReason);
+    return found ? found.label : notReadyReason;
+  };
+
   const respond = async (response: 'ready' | 'not_ready') => {
     if (!focused) return;
     setResponding(response);
     try {
       await waterTurnAlertsApi.respond(focused.id, {
         response,
-        note: response === 'not_ready' ? notReadyReason : undefined,
+        note: response === 'not_ready' ? selectedReasonLabel() : undefined,
       });
-      show(response === 'ready' ? 'Great — the owner will be notified!' : 'The owner has been notified.', 'success');
+      show(response === 'ready' ? t('wt_response_ready') : t('wt_response_not_ready'), 'success');
       setShowNotReady(false);
       await load(alertId || undefined);
     } catch (err) {
@@ -86,7 +102,7 @@ export default function FarmerWaterTurnAlert() {
   if (loading) {
     return (
       <div className="page">
-        <PageHeader title="Your Water Turn" subtitle="Checking for new alerts…" />
+        <PageHeader title={t('your_water_turn')} subtitle={t('checking_alerts')} />
         <Spinner />
       </div>
     );
@@ -97,27 +113,27 @@ export default function FarmerWaterTurnAlert() {
     : alerts.slice(0, 5);
 
   const statusText: Record<string, string> = {
-    sent: 'Waiting for your confirmation…',
-    acknowledged: 'Waiting for your confirmation…',
-    ready: 'Confirmed READY. The owner will start water when your turn comes.',
-    not_ready: 'Confirmed NOT READY. The owner may re-check with you.',
-    no_response: 'No response was recorded. Please contact the tubewell owner.',
-    cancelled: 'This alert was cancelled by the owner.',
-    pending: 'Alert in progress…',
+    sent: t('wt_status_sent'),
+    acknowledged: t('wt_status_sent'),
+    ready: t('wt_status_ready'),
+    not_ready: t('wt_status_not_ready'),
+    no_response: t('wt_status_no_response'),
+    cancelled: t('wt_status_cancelled'),
+    pending: t('wt_status_pending'),
   };
 
   return (
     <div className="page">
       {toast}
-      <PageHeader title="Your Water Turn" subtitle="Respond as soon as possible" />
+      <PageHeader title={t('your_water_turn')} subtitle={t('respond_asap')} />
 
       {!focused ? (
         <Card>
           <div style={{ textAlign: 'center', padding: '18px 0' }}>
             <div style={{ fontSize: '2rem' }}>🕐</div>
-            <div style={{ fontWeight: 800, marginTop: 6 }}>No Active Alert</div>
+            <div style={{ fontWeight: 800, marginTop: 6 }}>{t('no_active_alert')}</div>
             <div style={{ fontSize: '0.85rem', color: '#666', marginTop: 4 }}>
-              You will see your water-turn alert here the moment the owner notifies you.
+              {t('no_active_alert_hint')}
             </div>
           </div>
         </Card>
@@ -126,9 +142,9 @@ export default function FarmerWaterTurnAlert() {
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{focused.tubewellName || 'Tubewell'}</div>
+                <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{focused.tubewellName || t('tubewell')}</div>
                 <div style={{ fontSize: '0.85rem', color: '#555', marginTop: 2 }}>
-                  {focused.fieldName || 'Your field'}
+                  {focused.fieldName || t('your_field')}
                   {focused.cropName ? ` (${focused.cropName})` : ''}
                 </div>
               </div>
@@ -144,7 +160,7 @@ export default function FarmerWaterTurnAlert() {
             </div>
 
             <div style={{ marginTop: 14, textAlign: 'center' }}>
-              <div style={{ color: '#666', fontSize: '0.75rem', letterSpacing: 1 }}>TIME LEFT TO ANSWER</div>
+              <div style={{ color: '#666', fontSize: '0.75rem', letterSpacing: 1 }}>{t('time_left_to_answer')}</div>
               <div
                 style={{
                   fontSize: '3.2rem',
@@ -156,14 +172,14 @@ export default function FarmerWaterTurnAlert() {
                 {deadlineMs > 0 ? formatCountdown(deadlineMs) : '--:--'}
               </div>
               <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: 10 }}>
-                Attempt {focused.attemptNumber} of {focused.maxAttempts}
+                {t('attempt_of', { attempt: focused.attemptNumber, max: focused.maxAttempts })}
               </div>
             </div>
 
             {(focused.status === 'sent' || focused.status === 'acknowledged') ? (
               deadlineMs <= 0 ? (
                 <div style={{ marginTop: 14, backgroundColor: '#ffebee', color: '#b71c1c', padding: 10, borderRadius: 8, fontSize: '0.85rem', fontWeight: 600 }}>
-                  This alert has expired. Please contact the owner.
+                  {t('alert_expired')}
                 </div>
               ) : (
                 <>
@@ -174,7 +190,7 @@ export default function FarmerWaterTurnAlert() {
                       onClick={() => void respond('ready')}
                     >
                       <span>👍</span>
-                      <span>{responding === 'ready' ? 'पुष्टि की जा रही है…' : 'तैयार हूँ · I AM READY'}</span>
+                      <span>{responding === 'ready' ? t('confirming') : t('i_am_ready')}</span>
                     </button>
                     <button
                       className="btn-farmer-action btn-farmer-not-ready"
@@ -182,17 +198,17 @@ export default function FarmerWaterTurnAlert() {
                       onClick={() => setShowNotReady((v) => !v)}
                     >
                       <span>✋</span>
-                      <span>{responding === 'not_ready' ? 'भेजा जा रहा है…' : 'तैयार नहीं हूँ · NOT READY'}</span>
+                      <span>{responding === 'not_ready' ? t('sending') : t('im_not_ready')}</span>
                     </button>
                   </div>
                   {showNotReady ? (
                     <div style={{ marginTop: 14 }}>
-                      <label>कारण चुनें / Choose Reason</label>
+                      <label>{t('choose_reason')}</label>
                       <select value={notReadyReason} onChange={(e) => setNotReadyReason(e.target.value)}>
-                        {NOT_READY_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        {notReadyOptions.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
                       </select>
                       <button className="btn btn-sm btn-secondary mt-sm" style={{ width: '100%' }} onClick={() => void respond('not_ready')}>
-                        Submit NOT READY
+                        {t('submit_not_ready')}
                       </button>
                     </div>
                   ) : null}
@@ -206,10 +222,10 @@ export default function FarmerWaterTurnAlert() {
           </Card>
 
           {recent.length > 1 ? (
-            <Card title="Recent">
+            <Card title={t('recent')}>
               {recent.slice(1).map((a) => (
                 <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #eee', fontSize: '0.85rem' }}>
-                  <span>{a.tubewellName || 'Tubewell'} · {a.fieldName || 'Field'}</span>
+                  <span>{a.tubewellName || t('tubewell')} · {a.fieldName || t('field')}</span>
                   <Pill tone={a.status === 'ready' ? 'paid' : a.status === 'not_ready' ? 'pending' : 'cancelled'}>{a.status.replace('_', ' ')}</Pill>
                 </div>
               ))}
@@ -219,7 +235,7 @@ export default function FarmerWaterTurnAlert() {
       )}
 
       <button className="btn btn-sm btn-ghost mt" style={{ width: '100%' }} onClick={() => navigate('/farmer/home')}>
-        ← Back to Home
+        ← {t('back_to_home')}
       </button>
     </div>
   );

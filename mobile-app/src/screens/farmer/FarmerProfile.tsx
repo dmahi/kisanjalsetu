@@ -5,6 +5,7 @@ import { fieldsApi, cropsApi, notificationsApi, type Field, type Crop } from '..
 import { apiErrorMessage } from '../../api/client';
 import { PageHeader, Card, useToast, Row, ModalSheet, Segmented } from '../../components/ui';
 import { useLocale, LOCALES, type Locale } from '../../store/locale.store';
+import { cropLabel } from '../../hooks/useDynamicOptions';
 
 export default function FarmerProfile() {
   const user = useAuthStore((s) => s.user);
@@ -131,7 +132,7 @@ export default function FarmerProfile() {
             <option value="">{t('select_ph')}</option>
             {cropsList.map((c) => (
               <option key={c.id} value={c.name}>
-                {c.name}
+                {cropLabel(c, locale)}
               </option>
             ))}
             <option value="OTHER_WRITE_IN">+ {t('other')}...</option>

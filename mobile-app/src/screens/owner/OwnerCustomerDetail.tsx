@@ -8,12 +8,15 @@ import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, Pill, ModalSheet } from '../../components/ui';
 import { formatINR, formatDuration, formatDateTime, toLocalInput } from '../../utils/formatters';
+import { useDynamicOptions } from '../../hooks/useDynamicOptions';
 
 export default function OwnerCustomerDetail() {
   const { customerId } = useParams<{ customerId: string }>();
   const ownerTubewellId = useSelectionStore((s) => s.ownerTubewellId);
   const { show, toast } = useToast();
   const t = useLocale((s) => s.t);
+  const { options: dynOptions } = useDynamicOptions(['payment_method']);
+  const payMethods = dynOptions['payment_method'] || [];
   const [sessions, setSessions] = useState<WaterSession[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [customerName, setCustomerName] = useState('');
@@ -22,6 +25,12 @@ export default function OwnerCustomerDetail() {
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('cash');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (payMethods.length > 0 && !payMethods.some((m) => m.code === method)) {
+      setMethod(payMethods[0].code);
+    }
+  }, [payMethods]);
 
   const load = async () => {
     if (!ownerTubewellId || !customerId) {
@@ -177,10 +186,9 @@ export default function OwnerCustomerDetail() {
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder={t('amount_hint')} autoFocus />
           <label>{t('method')}</label>
           <select value={method} onChange={(e) => setMethod(e.target.value)}>
-            <option value="cash">{t('cash')}</option>
-            <option value="upi">{t('upi')}</option>
-            <option value="bank_transfer">{t('bank_transfer')}</option>
-            <option value="other">{t('method_other')}</option>
+            {payMethods.map((m) => (
+              <option key={m.code} value={m.code}>{m.label}</option>
+            ))}
           </select>
           <button type="submit" className="btn btn-primary btn-lg mt" disabled={submitting}>
             {submitting ? t('recording') : t('record_payment')}

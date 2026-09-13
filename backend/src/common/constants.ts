@@ -84,3 +84,15 @@ export const DEFAULT_CROPS = [
   'Vegetables',
   'Other',
 ];
+
+export const DEFAULT_CROP_LABELS: Record<string, { hi: string; pa: string }> = {
+  Wheat: { hi: 'गेहूं', pa: 'ਕਣਕ' },
+  Paddy: { hi: 'धान', pa: 'ਝੋਨਾ' },
+  Mustard: { hi: 'सरसों', pa: 'ਸਰ੍ਹੋਂ' },
+  Cotton: { hi: 'कपास', pa: 'ਕਪਾਹ' },
+  Sugarcane: { hi: 'गन्ना', pa: 'ਕਮਾਦ' },
+  Maize: { hi: 'मक्का', pa: 'ਮੱਕੀ' },
+  Bajra: { hi: 'बाजरा', pa: 'ਬਾਜਰਾ' },
+  Vegetables: { hi: 'सब्जियां', pa: 'ਸਬਜ਼ੀਆਂ' },
+  Other: { hi: 'अन्य', pa: 'ਹੋਰ' },
+};

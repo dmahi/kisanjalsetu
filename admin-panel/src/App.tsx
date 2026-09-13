@@ -8,6 +8,7 @@ import Tubewells from './pages/Tubewells';
 import Sessions from './pages/Sessions';
 import Payments from './pages/Payments';
 import Settings from './pages/Settings';
+import Options from './pages/Options';
 
 export interface ToastMsg {
   kind: 'success' | 'error';
@@ -135,6 +136,7 @@ export default function App() {
         <NavLink to="/tubewells">Tubewells</NavLink>
         <NavLink to="/sessions">Sessions</NavLink>
         <NavLink to="/payments">Payments</NavLink>
+        <NavLink to="/options">Options</NavLink>
         <NavLink to="/settings">Settings</NavLink>
 
         <button className="logout" onClick={handleLogout}>
@@ -149,6 +151,7 @@ export default function App() {
           <Route path="/tubewells" element={<Tubewells />} />
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/options" element={<Options user={user} />} />
           <Route
             path="/settings"
             element={

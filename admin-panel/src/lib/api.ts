@@ -175,3 +175,49 @@ export const adminApi = {
   activityLogs: (params: { entityType?: string; entityId?: string; limit?: number }) =>
     api<ActivityLog[]>({ url: '/admin/activity-logs', method: 'GET', params }),
 };
+
+export interface AdminSelectOption {
+  id: string;
+  category: string;
+  code: string;
+  labels: Record<string, string>;
+  sortOrder: number;
+  active: boolean;
+  updatedAt?: string;
+}
+
+export interface AdminCrop {
+  id: string;
+  name: string;
+  labels: Record<string, string>;
+  status: string;
+  updatedAt?: string;
+}
+
+export const OPTION_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'tubewell_type', label: 'Tubewell Type' },
+  { key: 'payment_method', label: 'Payment Method' },
+  { key: 'discount_type', label: 'Discount Type' },
+  { key: 'not_ready_reason', label: 'Water-Turn "Not Ready" Reasons' },
+];
+
+export const OPTION_LOCALES = ['en', 'hi', 'pa'];
+
+export const selectOptionsAdminApi = {
+  list: (category?: string) =>
+    api<AdminSelectOption[]>({ url: '/admin/select-options', method: 'GET', params: category ? { category } : {} }),
+  create: (data: { category: string; code: string; labels: Record<string, string>; sortOrder?: number; active?: boolean }) =>
+    api<AdminSelectOption>({ url: '/admin/select-options', method: 'POST', data }),
+  update: (id: string, data: Partial<{ category: string; code: string; labels: Record<string, string>; sortOrder: number; active: boolean }>) =>
+    api<AdminSelectOption>({ url: `/admin/select-options/${id}`, method: 'PATCH', data }),
+  remove: (id: string) => api<{ message: string }>({ url: `/admin/select-options/${id}`, method: 'DELETE' }),
+};
+
+export const adminCropsApi = {
+  list: () => api<AdminCrop[]>({ url: '/admin/crops', method: 'GET' }),
+  create: (data: { name: string; labels: Record<string, string> }) =>
+    api<AdminCrop>({ url: '/admin/crops', method: 'POST', data }),
+  update: (id: string, data: Partial<{ name: string; labels: Record<string, string>; status: string }>) =>
+    api<AdminCrop>({ url: `/admin/crops/${id}`, method: 'PATCH', data }),
+  remove: (id: string) => api<{ message: string }>({ url: `/admin/crops/${id}`, method: 'DELETE' }),
+};

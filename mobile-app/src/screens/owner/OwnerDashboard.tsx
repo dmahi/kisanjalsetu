@@ -603,24 +603,24 @@ export default function OwnerDashboard() {
       </ModalSheet>
 
       {/* Notify Next Farmer sheet */}
-      <ModalSheet open={notifyOpen} onClose={() => setNotifyOpen(false)} title="Notify Next Farmer">
+      <ModalSheet open={notifyOpen} onClose={() => setNotifyOpen(false)} title={t('notify_next_farmer')}>
         {nextFarmer ? (
           <div style={{ backgroundColor: '#e3f2fd', border: '1px solid #bbdefb', borderRadius: 10, padding: 14, marginBottom: 14 }}>
             <div style={{ fontWeight: 800, color: '#1565c0', fontSize: '0.85rem' }}>
-              NEXT IN QUEUE (#{nextFarmer.queuePosition})
+              {t('next_in_queue', { pos: nextFarmer.queuePosition })}
             </div>
             <div style={{ fontWeight: 800, fontSize: '1.05rem', marginTop: 4 }}>
-              {nextFarmer.customerName || 'Farmer'}
+              {nextFarmer.customerName || t('farmer_singular')}
             </div>
             <div style={{ fontSize: '0.85rem', color: '#333', marginTop: 2 }}>
-              Field: <b>{nextFarmer.fieldName || 'Field'}</b>{nextFarmer.cropName ? ` (${nextFarmer.cropName})` : ''}
+              {t('field')}: <b>{nextFarmer.fieldName || t('your_field')}</b>{nextFarmer.cropName ? ` (${nextFarmer.cropName})` : ''}
             </div>
           </div>
         ) : (
-          <p className="muted" style={{ fontSize: '0.85rem' }}>No farmer is waiting in the queue.</p>
+          <p className="muted" style={{ fontSize: '0.85rem' }}>{t('no_farmer_waiting')}</p>
         )}
 
-        <label>Estimated time until this farmer's turn (approx.)</label>
+        <label>{t('estimate_time_hint')}</label>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
           {['5', '10', '15', '20', '30'].map((m) => (
             <button
@@ -629,7 +629,7 @@ export default function OwnerDashboard() {
               className={`btn btn-sm ${estimateMinutes === m ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setEstimateMinutes(m)}
             >
-              {m} min
+              {m} {t('min')}
             </button>
           ))}
           <button
@@ -637,7 +637,7 @@ export default function OwnerDashboard() {
             className={`btn btn-sm ${estimateMinutes === 'custom' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setEstimateMinutes('custom')}
           >
-            Custom
+            {t('custom')}
           </button>
         </div>
         {estimateMinutes === 'custom' ? (
@@ -647,13 +647,13 @@ export default function OwnerDashboard() {
             max={1440}
             value={customMinutes}
             onChange={(e) => setCustomMinutes(e.target.value)}
-            placeholder="Minutes"
+            placeholder={t('minutes')}
           />
         ) : null}
 
         <p className="muted mt" style={{ fontSize: '0.82rem' }}>
-          The farmer will receive a high-priority alert and must answer READY or NOT READY within 5 minutes.
-          {activeAlert ? ' An alert is already active for this farmer.' : ''}
+          {t('send_alert_note')}
+          {activeAlert ? ` ${t('active_alert_note')}` : ''}
         </p>
 
         <button
@@ -662,7 +662,7 @@ export default function OwnerDashboard() {
           disabled={sendingAlert || !nextFarmer}
           onClick={() => void handleNotifyNext()}
         >
-          {sendingAlert ? 'Sending…' : '📣 Send Alert'}
+          {sendingAlert ? t('sending') : t('send_alert')}
         </button>
       </ModalSheet>
     </div>

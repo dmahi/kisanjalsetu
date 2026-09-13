@@ -10,11 +10,15 @@ import { useLocale } from '../../store/locale.store';
 import { PageHeader, Card, Spinner, EmptyState, useToast, Row, Pill, ModalSheet } from '../../components/ui';
 import { formatINR, formatDuration, formatDateTime, toLocalInput } from '../../utils/formatters';
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
+import { useDynamicOptions, cropLabel } from '../../hooks/useDynamicOptions';
 
 export default function OwnerSessions() {
   const ownerTubewellId = useSelectionStore((s) => s.ownerTubewellId);
   const { show, toast } = useToast();
   const t = useLocale((s) => s.t);
+  const locale = useLocale((s) => s.locale);
+  const { options: dynOptions } = useDynamicOptions(['discount_type']);
+  const discountTypes = dynOptions['discount_type'] || [];
   const [sessions, setSessions] = useState<WaterSession[]>([]);
   const [tubewells, setTubewells] = useState<Tubewell[]>([]);
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
@@ -228,7 +232,7 @@ export default function OwnerSessions() {
           <select value={form.cropId} onChange={(e) => setForm({ ...form, cropId: e.target.value })}>
             <option value="">— {t('none')} —</option>
             {crops.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>{cropLabel(c, locale)}</option>
             ))}
           </select>
           <label>{t('start_time_datetime')}</label>
@@ -240,8 +244,9 @@ export default function OwnerSessions() {
               <label>{t('discount_type')}</label>
               <select value={form.discountType} onChange={(e) => setForm({ ...form, discountType: e.target.value })}>
                 <option value="">{t('none')}</option>
-                <option value="fixed">{t('fixed')}</option>
-                <option value="percentage">{t('percentage')} (%)</option>
+                {discountTypes.map((d) => (
+                  <option key={d.code} value={d.code}>{d.label}</option>
+                ))}
               </select>
             </div>
             {form.discountType ? (

@@ -4,6 +4,7 @@ export interface Crop {
   id: string;
   name: string;
   status: string;
+  labels?: Record<string, string>;
 }
 
 export interface Field {

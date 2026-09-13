@@ -7,11 +7,14 @@ import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { PageHeader, Card, Spinner, EmptyState, useToast, Row, Pill, ModalSheet } from '../../components/ui';
 import { formatINR, formatDateTime } from '../../utils/formatters';
+import { useDynamicOptions } from '../../hooks/useDynamicOptions';
 
 export default function OwnerPayments() {
   const ownerTubewellId = useSelectionStore((s) => s.ownerTubewellId);
   const { show, toast } = useToast();
   const t = useLocale((s) => s.t);
+  const { options: dynOptions } = useDynamicOptions(['payment_method']);
+  const payMethods = dynOptions['payment_method'] || [];
   const [tubewells, setTubewells] = useState<Tubewell[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -20,6 +23,12 @@ export default function OwnerPayments() {
   const [recordOpen, setRecordOpen] = useState(false);
   const [form, setForm] = useState({ customerId: '', amount: '', method: 'cash', note: '' });
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (payMethods.length > 0 && !payMethods.some((m) => m.code === form.method)) {
+      setForm((f) => ({ ...f, method: payMethods[0].code }));
+    }
+  }, [payMethods]);
 
   useEffect(() => {
     tubewellApi.mine().then((list) => setTubewells(list || [])).catch(() => undefined);
@@ -172,10 +181,9 @@ export default function OwnerPayments() {
           <input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^0-9.]/g, '') })} placeholder={t('amount_hint')} autoFocus />
           <label>{t('method')}</label>
           <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
-            <option value="cash">{t('cash')}</option>
-            <option value="upi">{t('upi')}</option>
-            <option value="bank_transfer">{t('bank_transfer')}</option>
-            <option value="other">{t('method_other')}</option>
+            {payMethods.map((m) => (
+              <option key={m.code} value={m.code}>{m.label}</option>
+            ))}
           </select>
           <label>{t('notes')} ({t('optional')})</label>
           <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />

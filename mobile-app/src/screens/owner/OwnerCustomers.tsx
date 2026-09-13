@@ -59,7 +59,7 @@ export default function OwnerCustomers() {
       <div className="page">
         {toast}
         <PageHeader title={t('customers')} />
-        <EmptyState icon="🚰" title={t('create_tubewell') + ' ' + t('first')} hint="Add a tubewell from Profile, then customers can join." />
+        <EmptyState icon="🚰" title={t('create_tubewell') + ' ' + t('first')} hint={t('add_tubewell_then_customers')} />
         <button className="btn btn-primary" onClick={() => navigate('/owner/profile')}>{t('profile')}</button>
       </div>
     );
@@ -68,7 +68,7 @@ export default function OwnerCustomers() {
   return (
     <div className="page">
       {toast}
-      <PageHeader title={t('customers')} subtitle="People registered to your tubewell" />
+      <PageHeader title={t('customers')} subtitle={t('people_registered')} />
       {tubewells.length > 0 ? (
         <Card>
           <label style={{ marginTop: 0 }}>{t('select_tubewell')}</label>
@@ -76,7 +76,7 @@ export default function OwnerCustomers() {
             value={ownerTubewellId ?? ''}
             onChange={(e) => void useSelectionStore.getState().setOwnerTubewell(e.target.value)}
           >
-            <option value="">— Select —</option>
+            <option value="">{t('select_ph')}</option>
             {tubewells.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
@@ -84,15 +84,15 @@ export default function OwnerCustomers() {
         </Card>
       ) : null}
       <Card>
-        <input placeholder="Search by name or phone…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input placeholder={t('search') + '…'} value={search} onChange={(e) => setSearch(e.target.value)} />
       </Card>
 
       {loading ? (
         <Spinner />
       ) : !ownerTubewellId ? (
-        <EmptyState title="Select a tubewell" hint="Pick a tubewell above to see its customers." />
+        <EmptyState title={t('select_tubewell')} hint={t('select_tubewell_hint')} />
       ) : customers.length === 0 ? (
-        <EmptyState icon="👥" title={t('no_customers')} hint="Share your tubewell code so farmers can request registration." />
+        <EmptyState icon="👥" title={t('no_customers')} hint={t('share_code_hint')} />
       ) : (
         customers.map((c) => (
           <Card key={c.customerId}>

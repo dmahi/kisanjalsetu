@@ -7,6 +7,7 @@ import { ownerApi } from '../../api/owner';
 import { apiErrorMessage, toFileUrl, uploadImage } from '../../api/client';
 import { PageHeader, Card, useToast, Segmented } from '../../components/ui';
 import { useLocale } from '../../store/locale.store';
+import { useDynamicOptions } from '../../hooks/useDynamicOptions';
 
 const MAX_PHOTOS = 4;
 
@@ -18,6 +19,15 @@ export default function BecomeOwner() {
   const navigate = useNavigate();
   const t = useLocale((s) => s.t);
   const { show, toast } = useToast();
+  const { options: dynOptions } = useDynamicOptions(['tubewell_type']);
+  const pumpTypes = dynOptions['tubewell_type'] || [];
+
+  const pumpTypeOptions = pumpTypes.length
+    ? pumpTypes.map((o) => ({ label: o.label, value: o.code as PumpType }))
+    : ([
+        { label: t('motor_pump'), value: 'motor_pump' },
+        { label: t('submersible_pump'), value: 'submersible_pump' },
+      ] as { label: string; value: PumpType }[]);
 
   const [profileImage, setProfileImage] = useState(user?.profileImage ?? '');
   const [name, setName] = useState('');
@@ -157,14 +167,13 @@ export default function BecomeOwner() {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('tubewell_name_hint')} />
 
         <label className="field-label">{t('tubewell_type')}</label>
-        <Segmented
-          options={[
-            { label: t('motor_pump'), value: 'motor_pump' },
-            { label: t('submersible_pump'), value: 'submersible_pump' },
-          ]}
-          value={type}
-          onChange={(v: PumpType) => setType(v)}
-        />
+        {pumpTypeOptions.length > 0 ? (
+          <Segmented
+            options={pumpTypeOptions}
+            value={type}
+            onChange={(v: PumpType) => setType(v)}
+          />
+        ) : null}
 
         <label className="field-label">{t('rate_per_hour_rs')} (₹)</label>
         <input

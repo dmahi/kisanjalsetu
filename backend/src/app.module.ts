@@ -23,6 +23,7 @@ import { WaterRequestsModule } from './water-requests/water-requests.module';
 import { WaterQueueModule } from './water-queue/water-queue.module';
 import { WaterTurnAlertsModule } from './water-turn-alerts/water-turn-alerts.module';
 import { SettingsModule } from './settings/settings.module';
+import { SelectOptionsModule } from './select-options/select-options.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -57,6 +58,7 @@ import { HealthController } from './health.controller';
     UploadsModule,
     WaterModule,
     SettingsModule,
+    SelectOptionsModule,
     WaterRequestsModule,
     WaterQueueModule,
     WaterTurnAlertsModule,

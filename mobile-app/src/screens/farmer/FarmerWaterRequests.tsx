@@ -41,6 +41,14 @@ export default function FarmerWaterRequests() {
 
   const selectedTubewell = tubewells.find((tw) => tw.tubewellId === (selectedTwId || farmerTubewellId));
 
+  const statusWord = (s: string) =>
+    s === 'pending' ? t('pending')
+      : s === 'accepted' ? t('approved')
+        : s === 'rejected' ? t('rejected')
+          : s === 'completed' ? t('completed')
+            : s === 'cancelled' ? t('cancelled')
+              : s;
+
   const loadRequests = async () => {
     try {
       const data = await waterRequestApi.listForCustomer(farmerTubewellId || undefined);
@@ -71,17 +79,17 @@ export default function FarmerWaterRequests() {
     e.preventDefault();
     const twId = selectedTwId || farmerTubewellId;
     if (!twId) {
-      show('Please select a tubewell', 'error');
+      show(t('select_tubewell_err'), 'error');
       return;
     }
     if (!fieldId) {
-      show('Please select a field', 'error');
+      show(t('select_field_err'), 'error');
       return;
     }
 
     const durationMins = Math.round(parseFloat(durationHours || '1') * 60);
     if (isNaN(durationMins) || durationMins <= 0) {
-      show('Please enter a valid requested duration', 'error');
+      show(t('valid_duration_err'), 'error');
       return;
     }
 
@@ -95,7 +103,7 @@ export default function FarmerWaterRequests() {
         preferredStartTime: preferredStartTime.trim() || undefined,
         note: note.trim() || undefined,
       });
-      show('Water request submitted successfully!', 'success');
+      show(t('request_submitted'), 'success');
       setModalOpen(false);
       setFieldId('');
       setCropName('');
@@ -109,10 +117,10 @@ export default function FarmerWaterRequests() {
   };
 
   const handleCancelRequest = async (id: string) => {
-    if (!window.confirm('Are you sure you want to cancel this water request?')) return;
+    if (!window.confirm(t('cancel_request_confirm'))) return;
     try {
       await waterRequestApi.cancel(id);
-      show('Water request cancelled', 'info');
+      show(t('request_cancelled'), 'info');
       void loadRequests();
     } catch (err) {
       show(apiErrorMessage(err), 'error');
@@ -123,8 +131,8 @@ export default function FarmerWaterRequests() {
     <div className="page">
       {toast}
       <PageHeader
-        title="Water Requests"
-        subtitle={selectedTubewell?.name || 'Manage your tubewell water requests'}
+        title={t('water_requests')}
+        subtitle={selectedTubewell?.name || t('manage_requests_hint')}
         right={
           <button
             className="btn btn-sm btn-primary"
@@ -133,7 +141,7 @@ export default function FarmerWaterRequests() {
               setModalOpen(true);
             }}
           >
-            + Request Water
+            + {t('request_water')}
           </button>
         }
       />
@@ -143,8 +151,8 @@ export default function FarmerWaterRequests() {
       ) : requests.length === 0 ? (
         <EmptyState
           icon="🚰"
-          title="No Water Requests Yet"
-          hint="Need water for your fields? Tap '+ Request Water' to send a request to the tubewell owner."
+          title={t('no_water_requests')}
+          hint={t('no_water_requests_hint')}
         />
       ) : (
         requests.map((req) => (
@@ -153,15 +161,15 @@ export default function FarmerWaterRequests() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>
-                    {req.fieldName || 'Field'}{req.cropName ? ` (${req.cropName})` : ''}
+                    {req.fieldName || t('field')}{req.cropName ? ` (${req.cropName})` : ''}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: '#666', marginTop: 2 }}>
-                    {req.tubewellName || 'Tubewell'} ·{' '}
+                    {req.tubewellName || t('tubewell')} ·{' '}
                     {req.status === 'completed' && req.actualDurationMinutes != null
-                      ? `Actual Duration: ${formatDuration(req.actualDurationMinutes)}`
-                      : `Duration: ${Math.round(req.requestedDurationMinutes / 60 * 10) / 10} hours`}
+                      ? t('actual_duration', { duration: formatDuration(req.actualDurationMinutes) })
+                      : t('duration_hours', { hours: String(Math.round(req.requestedDurationMinutes / 60 * 10) / 10) })}
                     {req.status === 'completed' && req.finalAmountPaise != null
-                      ? ` · Total: ${formatINR(req.finalAmountPaise)}`
+                      ? ` · ${t('total')}: ${formatINR(req.finalAmountPaise)}`
                       : ''}
                   </div>
                   {req.note ? (
@@ -171,11 +179,11 @@ export default function FarmerWaterRequests() {
                   ) : null}
                   {req.rejectionReason ? (
                     <div style={{ fontSize: '0.82rem', color: '#d32f2f', marginTop: 4 }}>
-                      Rejection Reason: {req.rejectionReason}
+                      {t('rejection_reason', { reason: req.rejectionReason })}
                     </div>
                   ) : null}
                   <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 6 }}>
-                    Requested on {formatDateTime(req.createdAt)}
+                    {t('requested_on', { time: formatDateTime(req.createdAt) })}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -190,7 +198,7 @@ export default function FarmerWaterRequests() {
                             : 'neutral'
                     }
                   >
-                    {req.status.toUpperCase()}
+                    {statusWord(req.status).toUpperCase()}
                   </Pill>
                   {req.status === 'accepted' && req.queuePosition != null ? (
                     <div
@@ -204,7 +212,7 @@ export default function FarmerWaterRequests() {
                         fontWeight: 700,
                       }}
                     >
-                      Queue #{req.queuePosition}
+                      {t('queue_pos', { pos: req.queuePosition })}
                     </div>
                   ) : null}
                 </div>
@@ -217,7 +225,7 @@ export default function FarmerWaterRequests() {
                     style={{ color: '#d32f2f' }}
                     onClick={() => handleCancelRequest(req.id)}
                   >
-                    Cancel Request
+                    {t('cancel_request')}
                   </button>
                 </div>
               ) : null}
@@ -227,11 +235,11 @@ export default function FarmerWaterRequests() {
       )}
 
       {/* New Water Request Modal */}
-      <ModalSheet open={modalOpen} onClose={() => setModalOpen(false)} title="Request Water">
+      <ModalSheet open={modalOpen} onClose={() => setModalOpen(false)} title={t('request_water')}>
         <form onSubmit={handleSubmitRequest}>
-          <label>Select Tubewell</label>
+          <label>{t('select_tubewell')}</label>
           <select value={selectedTwId} onChange={(e) => setSelectedTwId(e.target.value)}>
-            <option value="">Choose Tubewell...</option>
+            <option value="">{t('choose_tubewell')}</option>
             {tubewells.map((tw) => (
               <option key={tw.tubewellId} value={tw.tubewellId}>
                 {tw.name}
@@ -239,11 +247,11 @@ export default function FarmerWaterRequests() {
             ))}
           </select>
 
-          <label>Select Field</label>
+          <label>{t('select_field')}</label>
           {fieldsLoading ? (
-            <p className="muted" style={{ fontSize: '0.82rem' }}>Loading fields...</p>
+            <p className="muted" style={{ fontSize: '0.82rem' }}>{t('field_loading')}</p>
           ) : fields.length === 0 ? (
-            <p className="muted" style={{ fontSize: '0.82rem' }}>No fields registered yet. Please add a field first.</p>
+            <p className="muted" style={{ fontSize: '0.82rem' }}>{t('no_fields_first')}</p>
           ) : (
             <select
               value={fieldId}
@@ -256,7 +264,7 @@ export default function FarmerWaterRequests() {
                 }
               }}
             >
-              <option value="">Select Field...</option>
+              <option value="">{t('select_field_ph')}</option>
               {fields.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name} {f.crop ? `(${f.crop}) ` : ''}{f.area ? `[${f.area} ${f.areaUnit}]` : ''}
@@ -265,15 +273,15 @@ export default function FarmerWaterRequests() {
             </select>
           )}
 
-          <label>Crop (Optional)</label>
+          <label>{t('crop_optional')}</label>
           <input
             type="text"
-            placeholder="e.g. Wheat, Mustard, Paddy"
+            placeholder={t('crop_hint')}
             value={cropName}
             onChange={(e) => setCropName(e.target.value)}
           />
 
-          <label>Requested Duration (Hours)</label>
+          <label>{t('requested_duration_hours')}</label>
           <input
             type="number"
             step="0.5"
@@ -282,18 +290,18 @@ export default function FarmerWaterRequests() {
             onChange={(e) => setDurationHours(e.target.value)}
           />
 
-          <label>Preferred Time / Time Window (Optional)</label>
+          <label>{t('preferred_time')}</label>
           <input
             type="text"
-            placeholder="e.g. Morning 8 AM or Evening"
+            placeholder={t('preferred_time_hint')}
             value={preferredStartTime}
             onChange={(e) => setPreferredStartTime(e.target.value)}
           />
 
-          <label>Farmer Note (Optional)</label>
+          <label>{t('farmer_note')}</label>
           <textarea
             rows={2}
-            placeholder="e.g. Need urgent irrigation for sowing"
+            placeholder={t('farmer_note_hint')}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
@@ -303,7 +311,7 @@ export default function FarmerWaterRequests() {
             className="btn btn-primary btn-lg mt"
             disabled={submitting || !fieldId || fields.length === 0}
           >
-            {submitting ? 'Submitting Request...' : 'Submit Water Request'}
+            {submitting ? t('submitting_request') : t('submit_request')}
           </button>
         </form>
       </ModalSheet>
