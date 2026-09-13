@@ -56,6 +56,8 @@ body {
   color: var(--ink);
   font-family: var(--font);
   height: 100%;
+  /* Pull-to-refresh is handled by the app's own gesture wrapper */
+  overscroll-behavior-y: none;
 }
 
 #root {
@@ -119,6 +121,84 @@ label {
 .page {
   flex: 1;
   padding: 12px 14px 108px;
+}
+
+/* ---------- Pull to refresh ---------- */
+.pull-refresh-zone {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.pull-refresh-content {
+  flex: 1;
+  min-height: fit-content;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.pull-refresh-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 30;
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.pull-refresh-indicator.refreshing {
+  transform: translateY(12px) !important;
+}
+
+.pull-refresh-ripple {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pull-refresh-ripple.ready {
+  border-color: var(--brand-500);
+}
+
+.pull-refresh-knob {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--brand-500);
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+
+.pull-refresh-knob.spin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--brand-500);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  transition: none;
+}
+
+.pull-refresh-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  background: rgba(242, 245, 243, 0.45);
+  pointer-events: none;
 }
 
 .page-header {

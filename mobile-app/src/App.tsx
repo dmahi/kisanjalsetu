@@ -15,6 +15,7 @@ import { flushQueue, queuedCount } from './lib/offlineQueue';
 import { AppRoutes } from './router';
 
 import { initNativeStatusBar } from './utils/native';
+import RefreshablePage from './components/RefreshablePage';
 
 export default function App() {
   const initialized = useAuthStore((s) => s.initialized);
@@ -94,7 +95,13 @@ export default function App() {
           Syncing {queued} pending action{queued > 1 ? 's' : ''}…
         </div>
       ) : null}
-      <AppRoutes />
+      {user ? (
+        <RefreshablePage>
+          <AppRoutes />
+        </RefreshablePage>
+      ) : (
+        <AppRoutes />
+      )}
     </div>
   );
 }
