@@ -5,7 +5,7 @@ import { waterSessionApi, type WaterSession } from '../../api/sessions';
 import { waterRequestApi, type WaterRequest } from '../../api/requests';
 import { waterTurnAlertsApi, type WaterTurnAlert } from '../../api/waterTurnAlerts';
 import { apiErrorMessage } from '../../api/client';
-import { Card, Stat, Spinner, EmptyState, PageHeader, useToast, Row, Pill } from '../../components/ui';
+import { Card, Stat, Spinner, EmptyState, PageHeader, useToast, Row, Pill, ShareButton } from '../../components/ui';
 import { formatINR, formatDuration, formatClock, formatDateTime } from '../../utils/formatters';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useSessionTimerStore } from '../../store/sessionTimer.store';
@@ -263,11 +263,18 @@ export default function FarmerHome() {
                   title={`${formatDateTime(s.startDatetime)} · ${s.durationMinutes ? formatDuration(s.durationMinutes) : t('running')}`}
                   sub={`${t('rate_per_hour')} ${formatINR(s.ratePerHourPaise)}`}
                   right={
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
-                      <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending'}>
-                        {sessionLabel(s)}
-                      </Pill>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
+                        <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending'}>
+                          {sessionLabel(s)}
+                        </Pill>
+                      </div>
+                      <ShareButton
+                        iconOnly
+                        title={`KisanJalSetu Water Receipt - ${selectedTw?.name || 'Tubewell'}`}
+                        text={`💧 Water Session Summary\nTubewell: ${selectedTw?.name || 'Tubewell'}\nDate: ${formatDateTime(s.startDatetime)}\nDuration: ${s.durationMinutes ? formatDuration(s.durationMinutes) : 'Running'}\nAmount: ${formatINR(s.finalAmountPaise)}\nStatus: ${s.paymentStatus ? s.paymentStatus.toUpperCase() : 'PENDING'}`}
+                      />
                     </div>
                   }
                 />

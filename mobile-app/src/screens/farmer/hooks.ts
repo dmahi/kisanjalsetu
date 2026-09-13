@@ -9,6 +9,8 @@ export interface MyTubewell {
   code: string;
   address: string;
   village: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   status: string;
   membershipStatus: string;
   ratePerHour: number;

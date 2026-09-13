@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { LanguageSelectorPill } from './LanguageSelectorPill';
+import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../utils/haptics';
+import { shareWaterReceipt } from '../utils/native';
+import { pickPhoneContact } from '../utils/contacts';
+import { addWaterTurnToCalendar, type CalendarEventData } from '../utils/calendar';
 
 interface Props {
   children: React.ReactNode;
@@ -81,8 +84,15 @@ export function Row({
   right?: React.ReactNode;
   onClick?: () => void;
 }) {
+  const handleClick = () => {
+    if (onClick) {
+      void triggerHaptic('light');
+      onClick();
+    }
+  };
+
   return (
-    <div className="row" style={onClick ? { cursor: 'pointer' } : undefined} onClick={onClick}>
+    <div className="row" style={onClick ? { cursor: 'pointer' } : undefined} onClick={handleClick}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="row-title">{title}</div>
         {sub ? <div className="row-sub">{sub}</div> : null}
@@ -113,12 +123,27 @@ export function ModalSheet({
 }) {
   if (!open) return null;
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onClick={() => {
+        void triggerHaptic('light');
+        onClose();
+      }}
+    >
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
         {title ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <h3 className="sheet-title">{title}</h3>
-            <button className="close-btn" onClick={onClose} aria-label="Close">×</button>
+            <button
+              className="close-btn"
+              onClick={() => {
+                void triggerHaptic('light');
+                onClose();
+              }}
+              aria-label="Close"
+            >
+              ×
+            </button>
           </div>
         ) : null}
         {children}
@@ -130,6 +155,7 @@ export function ModalSheet({
 export function useToast(): { show: (msg: string, type?: 'success' | 'error' | 'info') => void; toast: React.ReactNode } {
   const [state, setState] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
   const show = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+    void triggerHapticNotification(type === 'error' ? 'error' : type === 'success' ? 'success' : 'warning');
     setState({ msg, type });
     setTimeout(() => setState(null), 2600);
   };
@@ -148,10 +174,103 @@ export function Segmented<T extends string>({
   return (
     <div className="segmented">
       {options.map((o) => (
-        <button key={o.value} className={o.value === value ? 'active' : ''} onClick={() => onChange(o.value)}>
+        <button
+          key={o.value}
+          className={o.value === value ? 'active' : ''}
+          onClick={() => {
+            void triggerHapticSelection();
+            onChange(o.value);
+          }}
+        >
           {o.label}
         </button>
       ))}
     </div>
+  );
+}
+
+/** One-tap WhatsApp / OS Share Receipt Button */
+export function ShareButton({
+  title,
+  text,
+  url,
+  label = '📲 Share Receipt',
+  iconOnly = false,
+  className,
+}: {
+  title: string;
+  text: string;
+  url?: string;
+  label?: string;
+  iconOnly?: boolean;
+  className?: string;
+}) {
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        className={className ?? 'btn-share-icon'}
+        onClick={() => void shareWaterReceipt({ title, text, url })}
+        title="Share Receipt / व्हाट्सएप शेयर"
+        aria-label="Share Receipt"
+      >
+        <span>📤</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={className ?? 'btn btn-secondary'}
+      onClick={() => void shareWaterReceipt({ title, text, url })}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** One-tap Phone Contact Picker Button */
+export function ContactPickerButton({
+  onSelect,
+  label = '📲 Pick from Contacts',
+}: {
+  onSelect: (contact: { name?: string; phone?: string }) => void;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="btn btn-sm btn-secondary"
+      style={{ marginBottom: 8 }}
+      onClick={async () => {
+        const contact = await pickPhoneContact();
+        if (contact) onSelect(contact);
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Calendar Event Reminder Button */
+export function CalendarButton({
+  event,
+  label = '📅 Add to Calendar',
+  className = 'btn btn-sm btn-secondary',
+}: {
+  event: CalendarEventData;
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() => void addWaterTurnToCalendar(event)}
+    >
+      {label}
+    </button>
   );
 }

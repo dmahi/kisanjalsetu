@@ -11,7 +11,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useSessionTimerStore } from '../../store/sessionTimer.store';
 import { useLocale } from '../../store/locale.store';
-import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, ModalSheet, Pill } from '../../components/ui';
+import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, ModalSheet, Pill, ShareButton } from '../../components/ui';
 import { formatINR, formatDuration, formatClock, toLocalInput } from '../../utils/formatters';
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
 
@@ -394,15 +394,25 @@ export default function OwnerDashboard() {
 
       {loading ? <Spinner /> : (
         <>
-          {/* Animated Water Pump Card for Operator */}
+          {/* Running session card */}
           <div className="mt">
             <WaterPumpAnimation
               isRunning={Boolean(running)}
-              tubewellName={selectedTubewellObj?.name}
+              tubewellName={tubewells.find((t) => t.id === ownerTubewellId)?.name}
               customerName={running?.customerName ?? undefined}
               elapsedTime={running ? formatClock(elapsedMs) : undefined}
               currentBillAmount={running ? Math.round(currentBillPaise / 100) : undefined}
             />
+            {running ? (
+              <div style={{ marginTop: 8, textAlign: 'center' }}>
+                <ShareButton
+                  title={`Live Water Session - ${tubewells.find((t) => t.id === ownerTubewellId)?.name || 'Tubewell'}`}
+                  text={`💧 Water Session Running\nTubewell: ${tubewells.find((t) => t.id === ownerTubewellId)?.name || 'Tubewell'}\nCustomer: ${running.customerName || 'Farmer'}\nElapsed: ${formatClock(elapsedMs)}\nCurrent Bill: ${formatINR(currentBillPaise)}`}
+                  label="📲 WhatsApp / Share Live Bill"
+                  className="btn btn-sm btn-whatsapp-share"
+                />
+              </div>
+            ) : null}
           </div>
 
           {/* Quick Water Start / Stop Huge Action Buttons */}

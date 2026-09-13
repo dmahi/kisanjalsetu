@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { waterTurnAlertsApi, type WaterTurnAlert } from '../../api/waterTurnAlerts';
 import { apiErrorMessage } from '../../api/client';
-import { PageHeader, Card, Spinner, Pill, useToast } from '../../components/ui';
+import { PageHeader, Card, Spinner, Pill, useToast, CalendarButton } from '../../components/ui';
 import { useLocale } from '../../store/locale.store';
 import { useDynamicOptions } from '../../hooks/useDynamicOptions';
+import { startAlertRingtone, stopAlertRingtone } from '../../utils/audio';
 
 function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -81,8 +82,21 @@ export default function FarmerWaterTurnAlert() {
     return found ? found.label : notReadyReason;
   };
 
+  // Ring loud alert sound when water turn alert is active
+  useEffect(() => {
+    if (focused && (focused.status === 'sent' || focused.status === 'acknowledged')) {
+      startAlertRingtone();
+    } else {
+      stopAlertRingtone();
+    }
+    return () => {
+      stopAlertRingtone();
+    };
+  }, [focused]);
+
   const respond = async (response: 'ready' | 'not_ready') => {
     if (!focused) return;
+    stopAlertRingtone();
     setResponding(response);
     try {
       await waterTurnAlertsApi.respond(focused.id, {
@@ -215,8 +229,18 @@ export default function FarmerWaterTurnAlert() {
                 </>
               )
             ) : (
-              <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: '#f1f8e9', fontSize: '0.9rem', fontWeight: 600 }}>
-                {statusText[focused.status] || focused.status}
+              <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: '#f1f8e9', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{statusText[focused.status] || focused.status}</div>
+                <CalendarButton
+                  event={{
+                    title: `Water Turn: ${focused.tubewellName || 'Tubewell'}`,
+                    description: `Field: ${focused.fieldName || 'My Field'}${focused.cropName ? ` - Crop: ${focused.cropName}` : ''}`,
+                    startTime: new Date(),
+                    durationMinutes: 60,
+                  }}
+                  label="📅 Add Water Turn to Calendar"
+                  className="btn btn-sm btn-secondary"
+                />
               </div>
             )}
           </Card>

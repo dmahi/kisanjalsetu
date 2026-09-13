@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { customerTubewellApi } from '../../api/tubewells';
 import { apiErrorMessage } from '../../api/client';
@@ -6,6 +6,7 @@ import { PageHeader, Card, EmptyState, useToast, Row, Pill, Spinner } from '../.
 import { formatINR } from '../../utils/formatters';
 import { useMyTubewells, useSearchTubewells } from './hooks';
 import { useLocale } from '../../store/locale.store';
+import { getCurrentCoordinates, calculateDistanceKm, formatDistanceBadge, type LocationCoords } from '../../utils/geolocation';
 
 export default function FarmerTubewells() {
   const navigate = useNavigate();
@@ -14,6 +15,13 @@ export default function FarmerTubewells() {
   const [search, setSearch] = useState('');
   const { results, loading } = useSearchTubewells(search);
   const { tubewells } = useMyTubewells();
+  const [userCoords, setUserCoords] = useState<LocationCoords | null>(null);
+
+  useEffect(() => {
+    void getCurrentCoordinates().then((coords) => {
+      if (coords) setUserCoords(coords);
+    });
+  }, []);
 
   const requestJoin = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -28,6 +36,12 @@ export default function FarmerTubewells() {
   const memberStatusLabel = (m: string) =>
     t(m === 'approved' ? 'approved' : m === 'pending' ? 'pending' : m === 'rejected' ? 'rejected' : m);
 
+  const getDistanceBadge = (lat?: number, lng?: number) => {
+    if (!userCoords || lat === undefined || lng === undefined) return null;
+    const dist = calculateDistanceKm(userCoords.latitude, userCoords.longitude, lat, lng);
+    return formatDistanceBadge(dist);
+  };
+
   return (
     <div className="page">
       {toast}
@@ -37,19 +51,26 @@ export default function FarmerTubewells() {
         {tubewells.length === 0 ? (
           <p className="muted" style={{ fontSize: '0.85rem' }}>{t('no_tubewells')}</p>
         ) : (
-          tubewells.map((t2) => (
-            <Row
-              key={t2.tubewellId}
-              title={t2.name}
-              sub={`${t2.village ?? t2.address} · ${formatINR(t2.ratePerHour * 100)}/hr`}
-              onClick={() => navigate(`/farmer/my-tubewells/${t2.tubewellId}`)}
-              right={
-                <Pill tone={t2.membershipStatus === 'approved' ? 'paid' : t2.membershipStatus === 'pending' ? 'pending' : t2.membershipStatus === 'rejected' ? 'danger' : 'cancelled'}>
-                  {memberStatusLabel(t2.membershipStatus)}
-                </Pill>
-              }
-            />
-          ))
+          tubewells.map((t2) => {
+            const distBadge = getDistanceBadge(t2.latitude ?? undefined, t2.longitude ?? undefined);
+            return (
+              <Row
+                key={t2.tubewellId}
+                title={
+                  <span>
+                    {t2.name} {distBadge ? <span className="distance-badge">{distBadge}</span> : null}
+                  </span>
+                }
+                sub={`${t2.village ?? t2.address} · ${formatINR(t2.ratePerHour * 100)}/hr`}
+                onClick={() => navigate(`/farmer/my-tubewells/${t2.tubewellId}`)}
+                right={
+                  <Pill tone={t2.membershipStatus === 'approved' ? 'paid' : t2.membershipStatus === 'pending' ? 'pending' : t2.membershipStatus === 'rejected' ? 'danger' : 'cancelled'}>
+                    {memberStatusLabel(t2.membershipStatus)}
+                  </Pill>
+                }
+              />
+            );
+          })
         )}
       </Card>
 
@@ -60,19 +81,26 @@ export default function FarmerTubewells() {
         {search && !loading && results.length === 0 ? (
           <EmptyState icon="🔍" title={t('no_tubewells')} />
         ) : (
-          results.map((t2) => (
-            <Row
-              key={t2.id}
-              title={t2.name}
-              sub={`${t2.village ?? t2.address} · ${formatINR(t2.ratePerHour * 100)}/hr`}
-              onClick={() => navigate(`/farmer/tubewells/${t2.id}`)}
-              right={
-                <button className="btn btn-sm btn-secondary" onClick={(e) => requestJoin(t2.id, e)}>
-                  {t('request_registration')}
-                </button>
-              }
-            />
-          ))
+          results.map((t2) => {
+            const distBadge = getDistanceBadge(t2.latitude ?? undefined, t2.longitude ?? undefined);
+            return (
+              <Row
+                key={t2.id}
+                title={
+                  <span>
+                    {t2.name} {distBadge ? <span className="distance-badge">{distBadge}</span> : null}
+                  </span>
+                }
+                sub={`${t2.village ?? t2.address} · ${formatINR(t2.ratePerHour * 100)}/hr`}
+                onClick={() => navigate(`/farmer/tubewells/${t2.id}`)}
+                right={
+                  <button className="btn btn-sm btn-secondary" onClick={(e) => requestJoin(t2.id, e)}>
+                    {t('request_registration')}
+                  </button>
+                }
+              />
+            );
+          })
         )}
       </Card>
     </div>

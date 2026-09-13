@@ -1056,3 +1056,72 @@ label {
   color: #ffffff;
   font-size: 1.05rem;
 }
+
+/* Tactile Micro-animations & Glassmorphic Polish */
+button:active,
+.btn:active,
+.card:active,
+.row:active,
+.segmented button:active {
+  transform: scale(0.975);
+  transition: transform 0.1s ease;
+}
+
+.card-glass {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px rgba(10, 79, 138, 0.08);
+}
+
+.distance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 79, 138, 0.08);
+  color: #0a4f8a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(10, 79, 138, 0.15);
+}
+
+.btn-whatsapp-share {
+  background: #25d366;
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.btn-whatsapp-share:hover,
+.btn-whatsapp-share:active {
+  background: #20ba5a;
+}
+
+.btn-share-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e8f7ee;
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.12);
+}
+
+.btn-share-icon:hover,
+.btn-share-icon:active {
+  background: #25d366;
+  color: #ffffff;
+  border-color: #25d366;
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+}

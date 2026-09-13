@@ -6,6 +6,9 @@ import { apiErrorMessage } from '../../api/client';
 import { PageHeader, Card, useToast, Row, ModalSheet, Segmented } from '../../components/ui';
 import { useLocale, LOCALES, type Locale } from '../../store/locale.store';
 import { cropLabel } from '../../hooks/useDynamicOptions';
+import { getCurrentCoordinates } from '../../utils/geolocation';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { isCapacitorNative } from '../../api/config';
 
 export default function FarmerProfile() {
   const user = useAuthStore((s) => s.user);
@@ -40,6 +43,21 @@ export default function FarmerProfile() {
     notificationsApi.unreadCount().then((r) => setUnread(r.count)).catch(() => undefined);
   }, []);
 
+  const [location, setLocation] = useState('');
+  const [locating, setLocating] = useState(false);
+
+  const handleGetLocation = async () => {
+    setLocating(true);
+    const coords = await getCurrentCoordinates();
+    setLocating(false);
+    if (coords) {
+      setLocation(`${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`);
+      show('GPS location captured!', 'success');
+    } else {
+      show('Could not get GPS location', 'error');
+    }
+  };
+
   const addField = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -53,12 +71,14 @@ export default function FarmerProfile() {
         name: name.trim(),
         area: area ? parseFloat(area) : undefined,
         crop: finalCrop || undefined,
+        location: location.trim() || undefined,
       });
       setAddOpen(false);
       setName('');
       setArea('');
       setCrop('');
       setCustomCrop('');
+      setLocation('');
       void loadFields();
       show(t('created_ok'), 'success');
     } catch (err) {
@@ -82,6 +102,29 @@ export default function FarmerProfile() {
             right={unread > 0 ? <span className="pill pending">{unread} new</span> : <span className="muted">›</span>}
           />
         </Link>
+        {isCapacitorNative() ? (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>🔔 Mobile Push Alerts</span>
+            <button
+              className="btn btn-xs btn-secondary"
+              onClick={async () => {
+                try {
+                  const req = await PushNotifications.requestPermissions();
+                  if (req.receive === 'granted') {
+                    await PushNotifications.register();
+                    show('Push notifications enabled!', 'success');
+                  } else {
+                    show('Push permission denied', 'error');
+                  }
+                } catch {
+                  show('Notifications setup complete', 'info');
+                }
+              }}
+            >
+              Enable / Check
+            </button>
+          </div>
+        ) : null}
       </Card>
 
       {user?.role === 'farmer' && (
@@ -145,8 +188,27 @@ export default function FarmerProfile() {
               placeholder={t('crop_hint')}
             />
           )}
+
           <label>{t('area')} ({t('acre')})</label>
           <input inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="e.g. 2" />
+
+          <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+            <span>{t('location')} ({t('optional')})</span>
+            <button
+              type="button"
+              className="btn btn-xs btn-secondary"
+              onClick={() => void handleGetLocation()}
+              disabled={locating}
+            >
+              {locating ? '📍 Locating...' : '📍 Use My GPS'}
+            </button>
+          </label>
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g. Near West Canal / GPS"
+          />
+
           <button type="submit" className="btn btn-primary mt-lg" disabled={saving}>
             {saving ? t('loading') : t('save')}
           </button>

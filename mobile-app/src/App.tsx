@@ -14,6 +14,8 @@ import { initNetworkMonitor, subscribeNetworkStatus } from './lib/network';
 import { flushQueue, queuedCount } from './lib/offlineQueue';
 import { AppRoutes } from './router';
 
+import { initNativeStatusBar } from './utils/native';
+
 export default function App() {
   const initialized = useAuthStore((s) => s.initialized);
   const user = useAuthStore((s) => s.user);
@@ -25,6 +27,7 @@ export default function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    void initNativeStatusBar();
     void hydrateAuth();
     void hydrateSelection();
     void hydrateTimer().then(() => ensureTicker());
