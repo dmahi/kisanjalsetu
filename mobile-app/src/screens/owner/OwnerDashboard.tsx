@@ -19,6 +19,7 @@ import { useSidebarStore } from '../../store/sidebar.store';
 import { triggerHapticSelection } from '../../utils/haptics';
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
 import { LanguageSelectorPill } from '../../components/LanguageSelectorPill';
+import { CurrentLocationWeather } from '../../components/CurrentLocationWeather';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -392,6 +393,9 @@ export default function OwnerDashboard() {
           ))}
         </select>
       </Card>
+
+      {/* Real-time Current Location Weather Card */}
+      <CurrentLocationWeather tubewellName={selectedTubewellObj?.name} />
 
       {loading ? <Spinner /> : (
         <>

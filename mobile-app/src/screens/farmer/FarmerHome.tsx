@@ -18,6 +18,7 @@ import { TubewellSwitcher } from './TubewellSwitcher';
 import { useMyTubewells } from './hooks';
 
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
+import { CurrentLocationWeather } from '../../components/CurrentLocationWeather';
 
 export default function FarmerHome() {
   const farmerTubewellId = useSelectionStore((s) => s.farmerTubewellId);
@@ -160,6 +161,9 @@ export default function FarmerHome() {
       <Card>
         <TubewellSwitcher />
       </Card>
+
+      {/* Real-time Current Location Weather Card */}
+      <CurrentLocationWeather tubewellName={selectedTw?.name} />
 
       {/* Category Quick Action Tiles matching reference UI */}
       <div className="tile-grid">

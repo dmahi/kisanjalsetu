@@ -16,6 +16,7 @@ import FarmerFields from './screens/farmer/FarmerFields';
 import BecomeOwner from './screens/farmer/BecomeOwner';
 import FarmerWaterRequests from './screens/farmer/FarmerWaterRequests';
 import FarmerWaterTurnAlert from './screens/farmer/FarmerWaterTurnAlert';
+import FarmerWeatherDetail from './screens/farmer/FarmerWeatherDetail';
 
 import OwnerDashboard from './screens/owner/OwnerDashboard';
 import OwnerCustomers from './screens/owner/OwnerCustomers';
@@ -81,6 +82,7 @@ function FarmerRoutes() {
       <Route path="my-tubewells/:id" element={<FarmerMyTubewellDetail />} />
       <Route path="requests" element={<FarmerWaterRequests />} />
       <Route path="water-turn" element={<FarmerWaterTurnAlert />} />
+      <Route path="weather" element={<FarmerWeatherDetail />} />
       <Route path="sessions" element={<FarmerSessions />} />
       <Route path="payments" element={<FarmerPayments />} />
       <Route path="fields" element={<FarmerFields />} />
@@ -103,6 +105,7 @@ function OwnerRoutes() {
       <Route path="payments" element={<OwnerPayments />} />
       <Route path="reports" element={<OwnerReports />} />
       <Route path="tubewells" element={<OwnerTubewells />} />
+      <Route path="weather" element={<FarmerWeatherDetail />} />
       <Route path="profile" element={<OwnerProfile />} />
       <Route path="notifications" element={<NotificationsScreen title="Notifications" backTo="/owner/profile" />} />
       <Route path="*" element={<Navigate to="/owner/dashboard" replace />} />
