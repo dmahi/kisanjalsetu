@@ -6,6 +6,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { PageHeader, Card, Spinner, EmptyState, useToast, Row, Pill } from '../../components/ui';
+import { UserAvatar } from '../../components/UserAvatar';
 import { formatINR, formatDuration } from '../../utils/formatters';
 
 export default function OwnerCustomers() {
@@ -97,6 +98,7 @@ export default function OwnerCustomers() {
         customers.map((c) => (
           <Card key={c.customerId}>
             <Row
+              left={<UserAvatar user={{ name: c.name, profileImage: c.profileImage, role: 'farmer' }} size={46} onDark={false} />}
               title={`${c.name}`}
               sub={`${c.phone}`}
               onClick={() => navigate(`/owner/customers/${c.customerId}`)}

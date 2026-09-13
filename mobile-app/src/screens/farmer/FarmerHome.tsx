@@ -143,7 +143,7 @@ export default function FarmerHome() {
         ? t('paid')
         : s.paymentStatus === 'partially_paid'
           ? t('partially_paid')
-          : t('pending');
+          : t('unpaid');
 
   const liveSpeechText = running
     ? `${selectedTw?.name || 'ट्यूबवेल'}: पानी चालू है। समय: ${formatClock(elapsedMs)}, बिल: ${Math.round(currentBillPaise / 100)} रुपये।`
@@ -280,18 +280,11 @@ export default function FarmerHome() {
                   title={`${formatDateTime(s.startDatetime)} · ${s.durationMinutes ? formatDuration(s.durationMinutes) : t('running')}`}
                   sub={`${t('rate_per_hour')} ${formatINR(s.ratePerHourPaise)}`}
                   right={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
-                        <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending'}>
-                          {sessionLabel(s)}
-                        </Pill>
-                      </div>
-                      <ShareButton
-                        iconOnly
-                        title={`KisanJalSetu Water Receipt - ${selectedTw?.name || 'Tubewell'}`}
-                        text={`💧 Water Session Summary\nTubewell: ${selectedTw?.name || 'Tubewell'}\nDate: ${formatDateTime(s.startDatetime)}\nDuration: ${s.durationMinutes ? formatDuration(s.durationMinutes) : 'Running'}\nAmount: ${formatINR(s.finalAmountPaise)}\nStatus: ${s.paymentStatus ? s.paymentStatus.toUpperCase() : 'PENDING'}`}
-                      />
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
+                      <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'unpaid'}>
+                        {sessionLabel(s)}
+                      </Pill>
                     </div>
                   }
                 />

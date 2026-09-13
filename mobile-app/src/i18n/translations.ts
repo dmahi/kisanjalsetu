@@ -53,6 +53,8 @@ export const translations: Record<Locale, Dict> = {
     invalid_otp: 'Enter the 4-8 digit OTP',
     home: 'Home',
     sessions: 'Sessions',
+    water_session: 'Water Session',
+    water_sessions: 'Water Sessions',
     payments: 'Payments',
     tubewells: 'Tubewells',
     profile: 'Profile',

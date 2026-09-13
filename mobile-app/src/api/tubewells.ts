@@ -100,6 +100,7 @@ export interface CustomerSummary {
   customerId: string;
   name: string;
   phone: string;
+  profileImage?: string | null;
   status: string;
   requestedAt?: string | null;
   approvedAt?: string | null;

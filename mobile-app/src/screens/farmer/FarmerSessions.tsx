@@ -8,7 +8,7 @@ import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { useMyTubewells } from './hooks';
 
-type Filter = 'all' | 'paid' | 'pending' | 'partial' | 'running';
+type Filter = 'all' | 'paid' | 'unpaid' | 'partial' | 'running';
 
 export default function FarmerSessions() {
   const tubewellId = useSelectionStore((s) => s.farmerTubewellId);
@@ -46,11 +46,12 @@ export default function FarmerSessions() {
   const filtered = sessions.filter((s) => {
     if (filter === 'all') return true;
     if (filter === 'running') return s.status === 'running';
+    if (filter === 'unpaid') return s.paymentStatus === 'unpaid' || (s.paymentStatus as string) === 'pending' || !s.paymentStatus;
     return s.paymentStatus === filter;
   });
 
   const statusTone = (s: WaterSession) =>
-    s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending';
+    s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'unpaid';
 
   const statusLabel = (s: WaterSession) =>
     s.status === 'running'
@@ -59,7 +60,7 @@ export default function FarmerSessions() {
         ? t('paid')
         : s.paymentStatus === 'partially_paid'
           ? t('partially_paid')
-          : t('pending');
+          : t('unpaid');
 
   return (
     <div className="page">
@@ -74,7 +75,7 @@ export default function FarmerSessions() {
             { label: t('running'), value: 'running' },
             { label: t('paid'), value: 'paid' },
             { label: t('partially_paid'), value: 'partial' },
-            { label: t('pending'), value: 'pending' },
+            { label: t('unpaid'), value: 'unpaid' },
           ]}
           value={filter}
           onChange={setFilter}

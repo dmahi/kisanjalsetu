@@ -233,6 +233,7 @@ export class TubewellCustomersController {
       customerId: u.id,
       name: u.name,
       phone: u.phone,
+      profileImage: u.profileImage || null,
       status: membership.status,
       requestedAt: membership.requestedAt,
       approvedAt: membership.approvedAt,

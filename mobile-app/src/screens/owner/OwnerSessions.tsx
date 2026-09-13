@@ -7,7 +7,7 @@ import type { Field } from '../../api/common';
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
-import { PageHeader, Card, Spinner, EmptyState, useToast, Row, Pill, ModalSheet } from '../../components/ui';
+import { PageHeader, Card, Spinner, EmptyState, useToast, Row, Pill, ModalSheet, ShareButton } from '../../components/ui';
 import { formatINR, formatDuration, formatDateTime, toLocalInput } from '../../utils/formatters';
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
 import { useDynamicOptions, cropLabel } from '../../hooks/useDynamicOptions';
@@ -150,7 +150,7 @@ export default function OwnerSessions() {
   };
 
   const tone = (s: WaterSession) =>
-    s.status === 'running' ? 'info' : s.status === 'cancelled' ? 'cancelled' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending';
+    s.status === 'running' ? 'info' : s.status === 'cancelled' ? 'cancelled' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'unpaid';
 
   const statusLabel = (s: WaterSession) =>
     s.status === 'cancelled'
@@ -192,11 +192,18 @@ export default function OwnerSessions() {
               title={`${s.customerName ?? t('customer')}${s.status === 'running' ? ` · ${t('running').toUpperCase()}` : ''}`}
               sub={s.durationMinutes != null ? `${formatDateTime(s.startDatetime)} · ${formatDuration(s.durationMinutes)}` : formatDateTime(s.startDatetime)}
               right={
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
-                  <Pill tone={tone(s)}>
-                    {statusLabel(s).toUpperCase()}
-                  </Pill>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
+                    <Pill tone={tone(s)}>
+                      {statusLabel(s).toUpperCase()}
+                    </Pill>
+                  </div>
+                  <ShareButton
+                    iconOnly
+                    title={`Water Receipt - ${s.customerName ?? 'Customer'}`}
+                    text={`💧 KisanJalSetu Water Receipt\nCustomer: ${s.customerName ?? 'Customer'}\nDate: ${formatDateTime(s.startDatetime)}\nDuration: ${s.durationMinutes != null ? formatDuration(s.durationMinutes) : 'Running'}\nAmount: ${formatINR(s.finalAmountPaise)}\nStatus: ${statusLabel(s).toUpperCase()}`}
+                  />
                 </div>
               }
             />

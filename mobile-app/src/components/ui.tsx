@@ -128,11 +128,13 @@ export function Pill({ children, tone }: { children: React.ReactNode; tone: stri
 export function Row({
   title,
   sub,
+  left,
   right,
   onClick,
 }: {
   title: React.ReactNode;
   sub?: React.ReactNode;
+  left?: React.ReactNode;
   right?: React.ReactNode;
   onClick?: () => void;
 }) {
@@ -145,6 +147,7 @@ export function Row({
 
   return (
     <div className="row" style={onClick ? { cursor: 'pointer' } : undefined} onClick={handleClick}>
+      {left ? <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{left}</div> : null}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="row-title">{title}</div>
         {sub ? <div className="row-sub">{sub}</div> : null}

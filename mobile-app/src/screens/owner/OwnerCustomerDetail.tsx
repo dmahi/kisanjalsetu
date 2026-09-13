@@ -6,7 +6,8 @@ import { ownerCustomerApi, tubewellApi, type Tubewell } from '../../api/tubewell
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
-import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, Pill, ModalSheet } from '../../components/ui';
+import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, Pill, ModalSheet, ShareButton } from '../../components/ui';
+import { UserAvatar } from '../../components/UserAvatar';
 import { formatINR, formatDuration, formatDateTime } from '../../utils/formatters';
 import { useDynamicOptions } from '../../hooks/useDynamicOptions';
 import { ChevronLeft } from 'lucide-react';
@@ -24,6 +25,8 @@ export default function OwnerCustomerDetail() {
   const [sessions, setSessions] = useState<WaterSession[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerPhoto, setCustomerPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [paySheet, setPaySheet] = useState(false);
   const [amount, setAmount] = useState('');
@@ -68,6 +71,8 @@ export default function OwnerCustomerDetail() {
         (c) => String(c.customerId) === String(custId) || String(c.membershipId) === String(custId),
       );
       setCustomerName(found?.name ?? 'Customer');
+      setCustomerPhone(found?.phone ?? '');
+      setCustomerPhoto(found?.profileImage ?? null);
     } catch (err) {
       show(apiErrorMessage(err), 'error');
     } finally {
@@ -157,16 +162,42 @@ export default function OwnerCustomerDetail() {
     <div className="page">
       {toast}
 
-
       <PageHeader
         title={customerName || 'Customer Account'}
         subtitle="Customer account & water session history"
+        right={
+          <UserAvatar
+            user={{ name: customerName, profileImage: customerPhoto, role: 'farmer' }}
+            size={44}
+            onDark={true}
+          />
+        }
       />
 
       {loading ? (
         <Spinner />
       ) : (
         <>
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <UserAvatar
+                user={{ name: customerName, profileImage: customerPhoto, role: 'farmer' }}
+                size={52}
+                onDark={false}
+              />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--brand-900)' }}>
+                  {customerName || 'Customer'}
+                </div>
+                {customerPhone && (
+                  <div style={{ fontSize: '0.88rem', color: '#555', marginTop: 2 }}>
+                    {customerPhone}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
           <div className="stat-row">
             <Stat label={t('total_water_minutes')} value={formatDuration(totals.minutes)} />
             <Stat label={t('total_billed')} value={formatINR(totals.billed)} />
@@ -211,11 +242,18 @@ export default function OwnerCustomerDetail() {
                   title={`${formatDateTime(s.startDatetime)}${s.endDatetime ? ` → ${new Date(s.endDatetime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}`}
                   sub={s.durationMinutes != null ? formatDuration(s.durationMinutes) : `Running · ${formatINR(s.finalAmountPaise)}`}
                   right={
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
-                      <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'pending'}>
-                        {statusLabel(s).toUpperCase()}
-                      </Pill>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 800 }}>{formatINR(s.finalAmountPaise)}</div>
+                        <Pill tone={s.status === 'running' ? 'info' : s.paymentStatus === 'paid' ? 'paid' : s.paymentStatus === 'partially_paid' ? 'partial' : 'unpaid'}>
+                          {statusLabel(s).toUpperCase()}
+                        </Pill>
+                      </div>
+                      <ShareButton
+                        iconOnly
+                        title={`Water Receipt - ${customerName || 'Customer'}`}
+                        text={`💧 KisanJalSetu Water Receipt\nCustomer: ${customerName || 'Customer'}\nDate: ${formatDateTime(s.startDatetime)}\nDuration: ${s.durationMinutes != null ? formatDuration(s.durationMinutes) : 'Running'}\nAmount: ${formatINR(s.finalAmountPaise)}\nStatus: ${statusLabel(s).toUpperCase()}`}
+                      />
                     </div>
                   }
                 />

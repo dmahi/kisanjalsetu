@@ -13,6 +13,7 @@ import {
 import { initNetworkMonitor, subscribeNetworkStatus } from './lib/network';
 import { flushQueue, queuedCount } from './lib/offlineQueue';
 import { AppRoutes } from './router';
+import { BottomNav } from './navigation';
 
 import { initNativeStatusBar } from './utils/native';
 import RefreshablePage from './components/RefreshablePage';
@@ -102,6 +103,7 @@ export default function App() {
       ) : (
         <AppRoutes />
       )}
+      <BottomNav />
     </div>
   );
 }

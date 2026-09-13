@@ -99,7 +99,7 @@ export default function FarmerMyTubewellDetail() {
           ? t('paid')
           : s.paymentStatus === 'partially_paid'
             ? t('partially_paid')
-            : t('pending');
+            : t('unpaid');
 
   const statusTone = (s: WaterSession) =>
     s.status === 'running'
@@ -110,7 +110,7 @@ export default function FarmerMyTubewellDetail() {
           ? 'paid'
           : s.paymentStatus === 'partially_paid'
             ? 'partial'
-            : 'pending';
+            : 'unpaid';
 
   const timeLabel = (iso?: string | null) =>
     iso ? new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';

@@ -39,39 +39,36 @@ function HomeRedirect() {
 export function AppRoutes() {
   const user = useAuthStore((s) => s.user);
   return (
-    <>
-      <Routes>
-        <Route path="/login" element={<PhoneLogin />} />
-        <Route path="/login/otp" element={<OtpVerify />} />
-        <Route path="/" element={<HomeRedirect />} />
+    <Routes>
+      <Route path="/login" element={<PhoneLogin />} />
+      <Route path="/login/otp" element={<OtpVerify />} />
+      <Route path="/" element={<HomeRedirect />} />
 
-        <Route
-          path="/farmer/*"
-          element={
-            <RequireAuth>
-              <RequireRole roles={['farmer']}>
-                <FarmerRoutes />
-              </RequireRole>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/owner/*"
-          element={
-            <RequireAuth>
-              <RequireRole roles={['tubewell_owner', 'operator']}>
-                <OwnerRoutes />
-              </RequireRole>
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="*"
-          element={user ? (user.role === 'admin' ? <Navigate to="/login" replace /> : <Navigate to={roleHomePath(user.role)} replace />) : <Navigate to="/login" replace />}
-        />
-      </Routes>
-      <BottomNav />
-    </>
+      <Route
+        path="/farmer/*"
+        element={
+          <RequireAuth>
+            <RequireRole roles={['farmer']}>
+              <FarmerRoutes />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/owner/*"
+        element={
+          <RequireAuth>
+            <RequireRole roles={['tubewell_owner', 'operator']}>
+              <OwnerRoutes />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="*"
+        element={user ? (user.role === 'admin' ? <Navigate to="/login" replace /> : <Navigate to={roleHomePath(user.role)} replace />) : <Navigate to="/login" replace />}
+      />
+    </Routes>
   );
 }
 

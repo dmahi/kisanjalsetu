@@ -1,8 +1,12 @@
-import type { User } from '../api/auth';
+import { useState, useEffect } from 'react';
 import { avatarEmoji } from '../utils/avatar';
 
 interface Props {
-  user?: User | null;
+  user?: {
+    name?: string;
+    profileImage?: string | null;
+    role?: string;
+  } | null;
   size?: number;
   /** Set by headers that sit on the green background. */
   onDark?: boolean;
@@ -10,6 +14,12 @@ interface Props {
 
 /** Circular profile avatar: shows the uploaded photo or a role emoji fallback. */
 export function UserAvatar({ user, size = 44, onDark = true }: Props) {
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.profileImage]);
+
   const circle: React.CSSProperties = {
     width: size,
     height: size,
@@ -23,13 +33,14 @@ export function UserAvatar({ user, size = 44, onDark = true }: Props) {
     boxShadow: onDark ? '0 2px 8px rgba(0, 0, 0, 0.15)' : undefined,
   };
 
-  if (user?.profileImage) {
+  if (user?.profileImage && !imgError) {
     return (
       <img
         className="user-avatar-img"
         src={user.profileImage}
         alt={user.name || 'avatar'}
         style={{ ...circle, objectFit: 'cover' }}
+        onError={() => setImgError(true)}
       />
     );
   }
