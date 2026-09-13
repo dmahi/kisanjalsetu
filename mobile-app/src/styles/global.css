@@ -937,9 +937,17 @@ label {
 }
 
 @keyframes soundPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Live Animated Water Pump Card */
@@ -979,8 +987,13 @@ label {
 }
 
 @keyframes waveFlow {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50px); }
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50px);
+  }
 }
 
 .water-droplet {
@@ -988,9 +1001,20 @@ label {
 }
 
 @keyframes dropletDrop {
-  0% { opacity: 0; transform: translateY(-10px) scale(0.5); }
-  50% { opacity: 1; transform: translateY(12px) scale(1); }
-  100% { opacity: 0; transform: translateY(30px) scale(0.7); }
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.5);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(12px) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.7);
+  }
 }
 
 /* Animated Water Turn Bell Ring Alert Card */
@@ -1005,9 +1029,17 @@ label {
 }
 
 @keyframes alertGlow {
-  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-  70% { box-shadow: 0 0 0 14px rgba(245, 158, 11, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 14px rgba(245, 158, 11, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
 }
 
 .ringing-bell-icon {
@@ -1017,8 +1049,13 @@ label {
 }
 
 @keyframes bellRing {
-  0% { transform: rotate(-18deg); }
-  100% { transform: rotate(18deg); }
+  0% {
+    transform: rotate(-18deg);
+  }
+
+  100% {
+    transform: rotate(18deg);
+  }
 }
 
 /* Large High-Contrast Buttons for Low-Literacy Farmers */
