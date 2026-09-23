@@ -6,6 +6,7 @@ import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { formatINR } from '../../utils/formatters';
 import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../../utils/haptics';
+import { useSocketEvent } from '../../lib/useSocketEvents';
 import {
   PageHeader,
   Card,
@@ -66,6 +67,13 @@ export default function OwnerWaterQueue() {
     const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
   }, [ownerTubewellId]);
+
+  // Live: a farmer submitted a new request, or cancelled one via socket.
+  const handleQueueEvent = () => void loadData();
+  useSocketEvent('waterRequestCreated', handleQueueEvent);
+  useSocketEvent('waterRequestCancelled', handleQueueEvent);
+  useSocketEvent('waterRequestAccepted', handleQueueEvent);
+  useSocketEvent('waterRequestRejected', handleQueueEvent);
 
   const handleAcceptRequest = async (id: string) => {
     triggerHapticSelection();

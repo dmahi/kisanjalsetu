@@ -20,6 +20,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { WaterQueueService } from '../water-queue/water-queue.service';
 import { WaterQueueEntry, WaterQueueEntryDocument, QUEUE_STATUS } from '../water-queue/schemas/water-queue.schema';
 import { WaterSession, WaterSessionDocument } from '../sessions/schemas/water-session.schema';
+import { WaterGateway } from '../water/water.gateway';
 import { PAYMENT_STATUS } from '../common/constants';
 import { MoneyService } from '../common/money.service';
 
@@ -38,6 +39,7 @@ export class WaterRequestsService {
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
     private readonly waterQueueService: WaterQueueService,
+    private readonly waterGateway: WaterGateway,
     private readonly money: MoneyService,
   ) {}
 
@@ -89,6 +91,21 @@ export class WaterRequestsService {
         },
       });
     }
+
+    this.waterGateway.emitWaterRequestCreated({
+      requestId: String(doc._id),
+      tubewellId: dto.tubewellId,
+      ownerId: tubewell?.ownerId ? String(tubewell.ownerId) : undefined,
+      customerId,
+      customerName: farmer?.name || null,
+      fieldId: dto.fieldId,
+      fieldName: field.name || null,
+      cropName: cropName || null,
+      requestedDurationMinutes: doc.requestedDurationMinutes,
+      preferredStartTime: doc.preferredStartTime || null,
+      note: doc.note || null,
+      createdAt: (doc as any).createdAt,
+    });
 
     return doc;
   }
@@ -209,6 +226,20 @@ export class WaterRequestsService {
       await qEntry.save();
       await this.waterQueueService.normalizeQueuePositions(String(req.tubewellId));
     }
+
+    const cancelledTubewell = await this.tubewellsService.findById(String(req.tubewellId));
+    const cancelledField = req.fieldId
+      ? await this.fieldsService.findByIdForCustomer(customerId, String(req.fieldId))
+      : null;
+
+    this.waterGateway.emitWaterRequestCancelled({
+      requestId: String(req._id),
+      tubewellId: String(req.tubewellId),
+      ownerId: cancelledTubewell?.ownerId ? String(cancelledTubewell.ownerId) : undefined,
+      customerId,
+      customerName: null,
+      fieldName: cancelledField?.name || null,
+    });
 
     return req;
   }
@@ -342,6 +373,22 @@ export class WaterRequestsService {
       cropName: req.cropName || undefined,
     });
 
+    const tubewell = await this.tubewellsService.findById(String(req.tubewellId));
+    const farmer = await this.usersService.findById(String(req.customerId));
+    const field = req.fieldId
+      ? await this.fieldsService.findByIdForCustomer(String(req.customerId), String(req.fieldId))
+      : null;
+
+    this.waterGateway.emitWaterRequestAccepted({
+      requestId: String(req._id),
+      tubewellId: String(req.tubewellId),
+      customerId: String(req.customerId),
+      customerName: farmer?.name || null,
+      fieldName: field?.name || null,
+      cropName: req.cropName || null,
+      queuePosition: qEntry.queuePosition,
+    });
+
     return {
       request: req,
       queueEntry: qEntry,
@@ -385,6 +432,15 @@ export class WaterRequestsService {
         water_request_id: String(req._id),
         rejection_reason: dto.rejectionReason || '',
       },
+    });
+
+    this.waterGateway.emitWaterRequestRejected({
+      requestId: String(req._id),
+      tubewellId: String(req.tubewellId),
+      customerId: String(req.customerId),
+      fieldName: field?.name || null,
+      cropName: req.cropName || null,
+      rejectionReason: dto.rejectionReason?.trim() || null,
     });
 
     return req;

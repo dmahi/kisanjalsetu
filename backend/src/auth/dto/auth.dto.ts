@@ -13,7 +13,7 @@ export class VerifyOtpDto {
 
   @IsString()
   @MinLength(4)
-  @MaxLength(10)
+  @MaxLength(6)
   code: string;
 
   @IsOptional()

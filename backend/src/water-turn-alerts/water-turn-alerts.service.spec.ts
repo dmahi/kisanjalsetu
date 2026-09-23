@@ -196,6 +196,13 @@ function makeLogsService() {
   };
 }
 
+function makeWaterGateway() {
+  return {
+    emitWaterTurnAlertSent: jest.fn(),
+    emitWaterTurnAlertStatus: jest.fn(),
+  };
+}
+
 describe('WaterTurnAlertsService', () => {
   let service: WaterTurnAlertsService;
   let alertModel: ReturnType<typeof makeAlertModel>;
@@ -234,6 +241,7 @@ describe('WaterTurnAlertsService', () => {
       makeFieldsService() as any,
       notificationsService as any,
       makeLogsService() as any,
+      makeWaterGateway() as any,
     );
   });
 

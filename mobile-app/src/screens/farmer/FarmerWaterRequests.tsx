@@ -19,6 +19,7 @@ import { formatDateTime, formatDuration, formatINR } from '../../utils/formatter
 import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../../utils/haptics';
 import { shareWaterReceipt } from '../../utils/native';
 import { addWaterTurnToCalendar } from '../../utils/calendar';
+import { useSocketEvent } from '../../lib/useSocketEvents';
 
 export default function FarmerWaterRequests() {
   const navigate = useNavigate();
@@ -69,6 +70,12 @@ export default function FarmerWaterRequests() {
   useEffect(() => {
     void loadRequests();
   }, [farmerTubewellId]);
+
+  // Live updates: owner accepted / rejected / request cancelled via socket.
+  const handleReqEvent = () => void loadRequests();
+  useSocketEvent('waterRequestAccepted', handleReqEvent);
+  useSocketEvent('waterRequestRejected', handleReqEvent);
+  useSocketEvent('waterRequestCancelled', handleReqEvent);
 
   useEffect(() => {
     const twId = selectedTwId || farmerTubewellId;

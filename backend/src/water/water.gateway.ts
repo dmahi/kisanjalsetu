@@ -165,6 +165,128 @@ export class WaterGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`user:${ownerId}`).emit('waterStopped', data);
   }
 
+  private emitTo(rooms: string[], event: string, data: any) {
+    for (const room of rooms) {
+      this.server.to(room).emit(event, data);
+    }
+  }
+
+  /** Farmer created a new water request → owner + tubewell room. */
+  emitWaterRequestCreated(data: {
+    requestId: string;
+    tubewellId: string;
+    ownerId?: string | null;
+    customerId: string;
+    customerName?: string | null;
+    fieldId: string;
+    fieldName?: string | null;
+    cropName?: string | null;
+    requestedDurationMinutes?: number;
+    preferredStartTime?: string | null;
+    note?: string | null;
+    createdAt?: unknown;
+  }) {
+    this.emitTo(
+      [data.ownerId ? `user:${data.ownerId}` : '', `tubewell:${data.tubewellId}`].filter(Boolean),
+      'waterRequestCreated',
+      data,
+    );
+  }
+
+  /** Owner accepted a request → farmer + tubewell room. */
+  emitWaterRequestAccepted(data: {
+    requestId: string;
+    tubewellId: string;
+    customerId: string;
+    customerName?: string | null;
+    fieldName?: string | null;
+    cropName?: string | null;
+    queuePosition: number;
+  }) {
+    this.emitTo(
+      [`user:${data.customerId}`, `tubewell:${data.tubewellId}`].filter(Boolean),
+      'waterRequestAccepted',
+      data,
+    );
+  }
+
+  /** Owner rejected a request → farmer + tubewell room. */
+  emitWaterRequestRejected(data: {
+    requestId: string;
+    tubewellId: string;
+    customerId: string;
+    fieldName?: string | null;
+    cropName?: string | null;
+    rejectionReason?: string | null;
+  }) {
+    this.emitTo(
+      [`user:${data.customerId}`, `tubewell:${data.tubewellId}`].filter(Boolean),
+      'waterRequestRejected',
+      data,
+    );
+  }
+
+  /** Farmer cancelled a request → owner + farmer + tubewell room. */
+  emitWaterRequestCancelled(data: {
+    requestId: string;
+    tubewellId: string;
+    ownerId?: string | null;
+    customerId: string;
+    customerName?: string | null;
+    fieldName?: string | null;
+  }) {
+    this.emitTo(
+      [
+        data.ownerId ? `user:${data.ownerId}` : '',
+        `user:${data.customerId}`,
+        `tubewell:${data.tubewellId}`,
+      ].filter(Boolean),
+      'waterRequestCancelled',
+      data,
+    );
+  }
+
+  /** Water turn alert sent / retried / delayed → farmer + tubewell room. */
+  emitWaterTurnAlertSent(data: {
+    alertId: string;
+    tubewellId: string;
+    targetCustomerId: string;
+    farmerName?: string | null;
+    tubewellName?: string | null;
+    fieldName?: string | null;
+    cropName?: string | null;
+    responseDeadlineAt?: string | null;
+    attemptNumber: number;
+    maxAttempts: number;
+    estimatedRemainingMinutes?: number;
+    type?: string;
+  }) {
+    this.emitTo(
+      [`user:${data.targetCustomerId}`, `tubewell:${data.tubewellId}`].filter(Boolean),
+      'waterTurnAlertSent',
+      data,
+    );
+  }
+
+  /** Farmer responded / alert resolved → owner + tubewell room. */
+  emitWaterTurnAlertStatus(data: {
+    alertId: string;
+    tubewellId: string;
+    ownerId?: string | null;
+    targetCustomerId: string;
+    farmerName?: string | null;
+    tubewellName?: string | null;
+    status: string;
+    response?: string | null;
+    type?: string;
+  }) {
+    this.emitTo(
+      [data.ownerId ? `user:${data.ownerId}` : '', `tubewell:${data.tubewellId}`].filter(Boolean),
+      'waterTurnAlertStatus',
+      data,
+    );
+  }
+
   isUserOnline(userId: string): boolean {
     const sockets = this.userSockets.get(userId);
     return Boolean(sockets && sockets.size > 0);

@@ -31,6 +31,7 @@ import { UsersService } from '../users/users.service';
 import { FieldsService } from '../fields/fields.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
+import { WaterGateway } from '../water/water.gateway';
 import { CreateWaterTurnAlertDto } from './dto/water-turn-alert.dto';
 
 const ALERT_CHANNEL = 'water_turn';
@@ -52,6 +53,7 @@ export class WaterTurnAlertsService {
     private readonly fieldsService: FieldsService,
     private readonly notificationsService: NotificationsService,
     private readonly logsService: ActivityLogsService,
+    private readonly waterGateway: WaterGateway,
   ) {}
 
   private get responseMinutes(): number {
@@ -522,6 +524,22 @@ export class WaterTurnAlertsService {
       .catch((err) => {
         this.logger.warn(`water_turn push to farmer failed (${type}): ${err?.message || err}`);
       });
+
+    // Real-time socket: alert sent / retried / delayed → farmer + tubewell room.
+    this.waterGateway.emitWaterTurnAlertSent({
+      alertId: String(doc._id),
+      tubewellId: String(doc.tubewellId),
+      targetCustomerId: String(doc.targetCustomerId),
+      farmerName: farmer?.name || null,
+      tubewellName: t?.name || null,
+      fieldName: field?.name || null,
+      cropName: doc.cropName || null,
+      responseDeadlineAt: doc.responseDeadlineAt ? doc.responseDeadlineAt.toISOString() : null,
+      attemptNumber: doc.attemptNumber,
+      maxAttempts: doc.maxAttempts,
+      estimatedRemainingMinutes: doc.estimatedRemainingMinutes,
+      type,
+    });
   }
 
   private async notifyOwner(
@@ -559,6 +577,19 @@ export class WaterTurnAlertsService {
       .catch((err) => {
         this.logger.warn(`water_turn push to owner failed (${type}): ${err?.message || err}`);
       });
+
+    // Real-time socket: farmer response / no-response / ready → owner + tubewell room.
+    this.waterGateway.emitWaterTurnAlertStatus({
+      alertId: String(doc._id),
+      tubewellId: String(doc.tubewellId),
+      ownerId: t?.ownerId ? String(t.ownerId) : undefined,
+      targetCustomerId: String(doc.targetCustomerId),
+      farmerName: farmer?.name || null,
+      tubewellName: t?.name || null,
+      status: doc.status,
+      response: doc.response || null,
+      type,
+    });
   }
 
   private async hydrate(doc: WaterTurnAlertDocument): Promise<any> {

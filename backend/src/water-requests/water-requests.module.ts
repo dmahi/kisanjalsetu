@@ -12,6 +12,7 @@ import { CropsModule } from '../crops/crops.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WaterQueueModule } from '../water-queue/water-queue.module';
+import { WaterModule } from '../water/water.module';
 import { WaterSession, WaterSessionSchema } from '../sessions/schemas/water-session.schema';
 import { WaterQueueEntry, WaterQueueEntrySchema } from '../water-queue/schemas/water-queue.schema';
 import { MoneyService } from '../common/money.service';
@@ -29,6 +30,7 @@ import { MoneyService } from '../common/money.service';
     UsersModule,
     NotificationsModule,
     WaterQueueModule,
+    WaterModule,
   ],
   controllers: [CustomerWaterRequestsController, OwnerWaterRequestsController],
   providers: [WaterRequestsService, MoneyService],

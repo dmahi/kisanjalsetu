@@ -14,6 +14,8 @@ import { initNetworkMonitor, subscribeNetworkStatus } from './lib/network';
 import { flushQueue, queuedCount } from './lib/offlineQueue';
 import { AppRoutes } from './router';
 import { BottomNav } from './navigation';
+import { connectSocket, disconnectSocket, joinTubewell, onSocketEvent } from './lib/socket';
+import { startAlertRingtone } from './utils/audio';
 
 import { initNativeStatusBar } from './utils/native';
 import RefreshablePage from './components/RefreshablePage';
@@ -24,9 +26,43 @@ export default function App() {
   const hydrateAuth = useAuthStore((s) => s.hydrate);
   const hydrateTimer = useSessionTimerStore((s) => s.hydrate);
   const hydrateSelection = useSelectionStore((s) => s.hydrate);
+  const farmerTubewellId = useSelectionStore((s) => s.farmerTubewellId);
+  const ownerTubewellId = useSelectionStore((s) => s.ownerTubewellId);
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
   const navigate = useNavigate();
+
+  // Connect real-time socket once authenticated; disconnect on logout.
+  useEffect(() => {
+    if (!user) {
+      disconnectSocket();
+      return;
+    }
+    void connectSocket();
+    return () => disconnectSocket();
+  }, [user?.id]);
+
+  // Join socket rooms for the currently selected tubewell(s).
+  useEffect(() => {
+    if (!user) return;
+    void connectSocket().then(() => {
+      if (farmerTubewellId) joinTubewell(farmerTubewellId);
+      if (ownerTubewellId) joinTubewell(ownerTubewellId);
+    });
+  }, [user?.id, farmerTubewellId, ownerTubewellId]);
+
+  // Ring the alert tone immediately when a water turn alert arrives via socket
+  // and it targets the logged-in farmer (works on any screen, not just the
+  // Water Turn screen).
+  useEffect(() => {
+    if (!user || user.role !== 'farmer') return;
+    return onSocketEvent('waterTurnAlertSent', (p) => {
+      const targetId = p?.targetCustomerId || p?.customerId;
+      if (targetId && targetId === user.id) {
+        startAlertRingtone();
+      }
+    });
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     void initNativeStatusBar();

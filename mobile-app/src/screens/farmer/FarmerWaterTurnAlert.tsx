@@ -6,6 +6,7 @@ import { PageHeader, Card, Spinner, Pill, useToast, CalendarButton } from '../..
 import { useLocale } from '../../store/locale.store';
 import { useDynamicOptions } from '../../hooks/useDynamicOptions';
 import { startAlertRingtone, stopAlertRingtone } from '../../utils/audio';
+import { useSocketEvent } from '../../lib/useSocketEvents';
 
 function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -53,6 +54,12 @@ export default function FarmerWaterTurnAlert() {
   useEffect(() => {
     void load(alertId || undefined);
   }, [alertId]);
+
+  // A fresh alert (or retry/delay) arrived over the socket → refresh instantly
+  // instead of waiting for the next 10s poll.
+  useSocketEvent('waterTurnAlertSent', () => {
+    void load(alertId || undefined);
+  });
 
   // Preselect the first not-ready reason once options arrive.
   useEffect(() => {

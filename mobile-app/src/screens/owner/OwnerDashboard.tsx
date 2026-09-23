@@ -11,6 +11,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useSessionTimerStore } from '../../store/sessionTimer.store';
 import { useLocale } from '../../store/locale.store';
+import { useSocketEvent } from '../../lib/useSocketEvents';
 import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, ModalSheet, Pill, ShareButton } from '../../components/ui';
 import { formatINR, formatDuration, formatClock, toLocalInput } from '../../utils/formatters';
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
@@ -58,6 +59,29 @@ export default function OwnerDashboard() {
   const [sendingAlert, setSendingAlert] = useState(false);
   const [actingAlertId, setActingAlertId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
+
+  // Bumped whenever a socket event for this tubewell arrives → re-run load.
+  const [socketRefresh, setSocketRefresh] = useState(0);
+
+  const handleSessionEvent = (p: any) => {
+    if (!p || !p.tubewellId) return;
+    if (ownerTubewellId && p.tubewellId === ownerTubewellId) setSocketRefresh((v) => v + 1);
+  };
+  const handleAlertStatus = (p: any) => {
+    if (!p || !p.tubewellId) return;
+    if (ownerTubewellId && p.tubewellId === ownerTubewellId) setSocketRefresh((v) => v + 1);
+  };
+  const handleRequestCreated = (p: any) => {
+    if (!p || !p.tubewellId) return;
+    if (ownerTubewellId && p.tubewellId === ownerTubewellId) setSocketRefresh((v) => v + 1);
+  };
+  useSocketEvent('waterStarted', handleSessionEvent);
+  useSocketEvent('waterStopped', handleSessionEvent);
+  useSocketEvent('waterTurnAlertStatus', handleAlertStatus);
+  useSocketEvent('waterTurnAlertSent', handleAlertStatus);
+  useSocketEvent('waterRequestCreated', handleRequestCreated);
+  useSocketEvent('waterRequestAccepted', handleRequestCreated);
+  useSocketEvent('waterRequestCancelled', handleRequestCreated);
 
   // Load my tubewells once
   useEffect(() => {
@@ -114,7 +138,7 @@ export default function OwnerDashboard() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [ownerTubewellId]);
+  }, [ownerTubewellId, socketRefresh]);
 
   // load customers when opening start modal or tab focus
   useEffect(() => {
