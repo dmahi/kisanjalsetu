@@ -141,11 +141,23 @@ export class PushSender {
         androidNotification.visibility = 'PUBLIC';
         androidNotification.default_sound = false;
         androidNotification.default_vibrate_timings = false;
-        androidNotification.vibrate_timings = ['0s', '0.5s', '0.5s', '1s'];
+        // 30-second vibration pattern: 10 cycles of (0.5s vibrate, 0.5s pause, 1s vibrate, 1s pause)
+        androidNotification.vibrate_timings = [
+          '0s', '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+          '0.5s', '0.5s', '1s', '1s',
+        ];
       }
       if (payload.tag) androidNotification.tag = payload.tag;
       const android: Record<string, unknown> = { notification: androidNotification };
-      if (payload.priority === 'high') android.priority = 'high';
+      if (payload.priority === 'high') android.priority = 'HIGH';
       message.android = android;
     }
     const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {

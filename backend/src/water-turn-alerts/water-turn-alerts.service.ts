@@ -539,6 +539,7 @@ export class WaterTurnAlertsService {
         type,
         channel: ALERT_CHANNEL,
         priority: 'high',
+        sound: 'incoming_call',
         data: {
           type,
           water_turn_alert_id: String(doc._id),
