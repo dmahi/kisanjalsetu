@@ -259,7 +259,7 @@ describe('WaterTurnAlertsService', () => {
     const types = notificationsService.create.mock.calls.map((c: any[]) => c[0].type);
     expect(types).toContain('water_turn_alert');
     const call = notificationsService.create.mock.calls.find((c: any[]) => c[0].type === 'water_turn_alert');
-    expect(call[0].channel).toBe('water_turn');
+    expect(call[0].channel).toBe('water_turn_urgent_v3');
     expect(call[0].priority).toBe('high');
   });
 

@@ -134,7 +134,7 @@ export class PushSender {
     };
     if (payload.channel || payload.sound || payload.priority || payload.tag) {
       const androidNotification: Record<string, unknown> = {
-        channel_id: payload.channel || 'water_turn',
+        channel_id: payload.channel || 'water_turn_urgent_v3',
         sound: payload.sound || (payload.priority === 'high' ? 'incoming_call' : 'default'),
       };
       if (payload.priority === 'high') {

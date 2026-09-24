@@ -48,7 +48,7 @@ export class NotificationsService {
       input.priority === 'high' ||
       (input.type && (input.type.startsWith('water_turn') || input.type.includes('urgent')));
     const priority = isUrgent ? 'high' : input.priority;
-    const channel = input.channel || (isUrgent ? 'water_turn' : this.mapTypeToChannel(input.type));
+    const channel = input.channel || (isUrgent ? 'water_turn_urgent_v3' : this.mapTypeToChannel(input.type));
     const sound = input.sound || (isUrgent ? 'incoming_call' : 'default');
 
     // Fire-and-forget: push must never block the API response.

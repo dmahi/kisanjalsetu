@@ -34,7 +34,7 @@ import { ActivityLogsService } from '../activity-logs/activity-logs.service';
 import { WaterGateway } from '../water/water.gateway';
 import { CreateWaterTurnAlertDto } from './dto/water-turn-alert.dto';
 
-const ALERT_CHANNEL = 'water_turn';
+const ALERT_CHANNEL = 'water_turn_urgent_v3';
 
 @Injectable()
 export class WaterTurnAlertsService {

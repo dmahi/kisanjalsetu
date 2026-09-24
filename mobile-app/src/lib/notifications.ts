@@ -23,7 +23,7 @@ export const GENERAL_CHANNEL_ID = 'general';
 export const WATER_CHANNEL_ID = 'water';
 export const PAYMENTS_CHANNEL_ID = 'payments';
 /** High-importance alert channel used for water-turn READY/NOT_READY prompts. */
-export const WATER_ALERT_CHANNEL_ID = 'water_turn';
+export const WATER_ALERT_CHANNEL_ID = 'water_turn_urgent_v3';
 
 export interface RunningSessionCached {
   id: string;
@@ -334,13 +334,24 @@ export function isAppForeground(): boolean {
  *  must NOT schedule a second local banner — that was the duplicate. We only
  *  drive the loud JS ringtone while in the foreground, and stop tone on cancel. */
 function displayForegroundNotification(payload: Record<string, unknown>): void {
-  const raw = payload?.data;
-  const parsed =
-    typeof raw === 'string'
-      ? safeParse(raw)
-      : (raw as Record<string, unknown> | undefined) ?? {};
-  const type = typeof parsed?.type === 'string' ? parsed.type : '';
-  const isTurnAlert = type === 'water_turn_alert' || type === 'water_turn_alert_retry';
+  const notifObj = (payload?.notification as Record<string, unknown> | undefined) ?? {};
+  const rawData = payload?.data;
+  const parsedData =
+    typeof rawData === 'string'
+      ? safeParse(rawData)
+      : (rawData as Record<string, unknown> | undefined) ?? {};
+
+  const type =
+    typeof parsedData?.type === 'string'
+      ? parsedData.type
+      : typeof payload?.type === 'string'
+        ? payload.type
+        : '';
+
+  const isTurnAlert =
+    type === 'water_turn_alert' ||
+    type === 'water_turn_alert_retry' ||
+    type.startsWith('water_turn_alert');
 
   // Owner cancelled → stop any ringing tone immediately at the farmer side.
   if (type === 'water_turn_cancelled') {
@@ -350,39 +361,42 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
 
   // 1. Sound behavior: incoming_call tone plays ONLY when water_turn_alert is sent to farmer.
   //    All other notifications play a short chime sound.
-  if (isTurnAlert && appIsActive) {
+  if (isTurnAlert) {
     startAlertRingtone();
-  } else if (appIsActive) {
+  } else {
     playNotificationChime();
   }
 
-  // 2. Visual popup: Show notification banner on screen for every push notification.
+  // 2. Visual popup: Extract title and body from any FCM payload format & schedule banner.
   const title =
-    typeof payload?.title === 'string'
+    typeof payload?.title === 'string' && payload.title
       ? payload.title
-      : typeof parsed?.title === 'string'
-        ? parsed.title
-        : '';
+      : typeof notifObj?.title === 'string' && notifObj.title
+        ? notifObj.title
+        : typeof parsedData?.title === 'string' && parsedData.title
+          ? parsedData.title
+          : 'Water Turn Alert';
+
   const body =
     typeof payload?.body === 'string'
       ? payload.body
-      : typeof parsed?.body === 'string'
-        ? parsed.body
-        : '';
+      : typeof notifObj?.body === 'string'
+        ? notifObj.body
+        : typeof parsedData?.body === 'string'
+          ? parsedData.body
+          : '';
 
-  if (title) {
-    LocalNotifications.schedule({
-      notifications: [
-        {
-          id: Math.floor((Date.now() % 100000) + Math.random() * 1000),
-          title,
-          body: body || '',
-          channelId: isTurnAlert ? WATER_ALERT_CHANNEL_ID : GENERAL_CHANNEL_ID,
-          smallIcon: 'ic_stat_water',
-        },
-      ],
-    }).catch(() => undefined);
-  }
+  LocalNotifications.schedule({
+    notifications: [
+      {
+        id: Math.floor((Date.now() % 100000) + Math.random() * 1000),
+        title,
+        body: body || 'You have a new water alert notification.',
+        channelId: isTurnAlert ? WATER_ALERT_CHANNEL_ID : GENERAL_CHANNEL_ID,
+        smallIcon: 'ic_stat_water',
+      },
+    ],
+  }).catch(() => undefined);
 }
 
 import { notificationRouteFor } from './deeplink';

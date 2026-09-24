@@ -52,28 +52,28 @@ export default function App() {
   }, [user?.id, farmerTubewellId, ownerTubewellId]);
 
   // Ring the alert tone immediately when a water turn alert arrives via socket
-  // and it targets the logged-in farmer (works on any screen, not just the
+  // and it targets the logged-in user (works on any screen, not just the
   // Water Turn screen).
   useEffect(() => {
-    if (!user || user.role !== 'farmer') return;
+    if (!user) return;
     return onSocketEvent('waterTurnAlertSent', (p) => {
       const targetId = p?.targetCustomerId || p?.customerId;
-      if (targetId && targetId === user.id) {
+      if (targetId && String(targetId) === String(user.id)) {
         startAlertRingtone();
       }
     });
-  }, [user?.id, user?.role]);
+  }, [user?.id]);
 
   // Farmer responded or alert status updated → immediately stop the ringing tone.
   useEffect(() => {
-    if (!user || user.role !== 'farmer') return;
+    if (!user) return;
     return onSocketEvent('waterTurnAlertStatus', (p) => {
       const targetId = p?.targetCustomerId || p?.customerId;
       const status = String(p?.status || '').toUpperCase();
       const type = String(p?.type || '');
       if (
         targetId &&
-        targetId === user.id &&
+        String(targetId) === String(user.id) &&
         (status === 'READY' ||
           status === 'NOT_READY' ||
           status === 'CANCELLED' ||
@@ -83,7 +83,7 @@ export default function App() {
         stopAlertRingtone();
       }
     });
-  }, [user?.id, user?.role]);
+  }, [user?.id]);
 
   useEffect(() => {
     void initNativeStatusBar();
