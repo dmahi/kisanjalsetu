@@ -34,6 +34,10 @@ export class SettingsService {
       ...(dto.appName ? { appName: dto.appName.trim() } : {}),
       ...(dto.firebaseServiceAccount !== undefined ? { firebaseServiceAccount: dto.firebaseServiceAccount.trim() } : {}),
       ...(dto.firebaseServerKey !== undefined ? { firebaseServerKey: dto.firebaseServerKey.trim() } : {}),
+      ...(dto.showGoogleAds !== undefined ? { showGoogleAds: Boolean(dto.showGoogleAds) } : {}),
+      ...(dto.adMobBannerAdUnitId !== undefined ? { adMobBannerAdUnitId: dto.adMobBannerAdUnitId.trim() } : {}),
+      ...(dto.adSensePublisherId !== undefined ? { adSensePublisherId: dto.adSensePublisherId.trim() } : {}),
+      ...(dto.adSenseSlotId !== undefined ? { adSenseSlotId: dto.adSenseSlotId.trim() } : {}),
       ...(userId && Types.ObjectId.isValid(userId) ? { updatedBy: new Types.ObjectId(userId) } : {}),
     };
 
@@ -50,10 +54,20 @@ export class SettingsService {
     return settings;
   }
 
-  async getPublicSettings(): Promise<{ appName: string }> {
+  async getPublicSettings(): Promise<{
+    appName: string;
+    showGoogleAds: boolean;
+    adMobBannerAdUnitId: string;
+    adSensePublisherId: string;
+    adSenseSlotId: string;
+  }> {
     const settings = await this.getSettings();
     return {
       appName: settings.appName || 'KisanJalSetu',
+      showGoogleAds: settings.showGoogleAds ?? false,
+      adMobBannerAdUnitId: settings.adMobBannerAdUnitId || 'ca-app-pub-3940256099942544/6300978111',
+      adSensePublisherId: settings.adSensePublisherId || 'ca-pub-3940256099942544',
+      adSenseSlotId: settings.adSenseSlotId || '6300978111',
     };
   }
 }

@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -14,4 +14,20 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
   firebaseServerKey?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  showGoogleAds?: boolean;
+
+  @IsOptional()
+  @IsString()
+  adMobBannerAdUnitId?: string;
+
+  @IsOptional()
+  @IsString()
+  adSensePublisherId?: string;
+
+  @IsOptional()
+  @IsString()
+  adSenseSlotId?: string;
 }

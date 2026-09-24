@@ -76,15 +76,33 @@ export interface SystemSettings {
   appName: string;
   firebaseServiceAccount: string;
   firebaseServerKey: string;
+  showGoogleAds?: boolean;
+  adMobBannerAdUnitId?: string;
+  adSensePublisherId?: string;
+  adSenseSlotId?: string;
   updatedBy?: string | null;
   updatedAt?: string;
 }
 
 export const systemSettingsApi = {
-  getPublicSettings: () => api<{ appName: string }>({ url: '/settings/public', method: 'GET' }),
+  getPublicSettings: () =>
+    api<{
+      appName: string;
+      showGoogleAds: boolean;
+      adMobBannerAdUnitId: string;
+      adSensePublisherId: string;
+      adSenseSlotId: string;
+    }>({ url: '/settings/public', method: 'GET' }),
   getAdminSettings: () => api<SystemSettings>({ url: '/admin/settings', method: 'GET' }),
-  updateAdminSettings: (data: { appName?: string; firebaseServiceAccount?: string; firebaseServerKey?: string }) =>
-    api<SystemSettings>({ url: '/admin/settings', method: 'PATCH', data }),
+  updateAdminSettings: (data: {
+    appName?: string;
+    firebaseServiceAccount?: string;
+    firebaseServerKey?: string;
+    showGoogleAds?: boolean;
+    adMobBannerAdUnitId?: string;
+    adSensePublisherId?: string;
+    adSenseSlotId?: string;
+  }) => api<SystemSettings>({ url: '/admin/settings', method: 'PATCH', data }),
 };
 
 export interface AdminStats {

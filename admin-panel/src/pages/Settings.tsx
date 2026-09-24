@@ -15,11 +15,15 @@ export default function Settings({ user, onUserUpdated }: Props) {
   const [email, setEmail] = useState(user.email || '');
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // System & FCM settings state (app_settings collection)
+  // System, FCM & Google Ads settings state (app_settings collection)
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [appName, setAppName] = useState(user.appName || '');
   const [fcmJson, setFcmJson] = useState('');
   const [fcmServerKey, setFcmServerKey] = useState('');
+  const [showGoogleAds, setShowGoogleAds] = useState(false);
+  const [adMobBannerAdUnitId, setAdMobBannerAdUnitId] = useState('ca-app-pub-3940256099942544/6300978111');
+  const [adSensePublisherId, setAdSensePublisherId] = useState('ca-pub-3940256099942544');
+  const [adSenseSlotId, setAdSenseSlotId] = useState('6300978111');
   const [savingSystemSettings, setSavingSystemSettings] = useState(false);
 
   // Password form state
@@ -35,6 +39,10 @@ export default function Settings({ user, onUserUpdated }: Props) {
         setAppName(s.appName || user.appName || '');
         setFcmJson(s.firebaseServiceAccount || '');
         setFcmServerKey(s.firebaseServerKey || '');
+        setShowGoogleAds(s.showGoogleAds ?? false);
+        if (s.adMobBannerAdUnitId) setAdMobBannerAdUnitId(s.adMobBannerAdUnitId);
+        if (s.adSensePublisherId) setAdSensePublisherId(s.adSensePublisherId);
+        if (s.adSenseSlotId) setAdSenseSlotId(s.adSenseSlotId);
       })
       .catch(() => {
         /* silent fallback if server starting */
@@ -79,10 +87,14 @@ export default function Settings({ user, onUserUpdated }: Props) {
         appName: appName.trim(),
         firebaseServiceAccount: fcmJson.trim(),
         firebaseServerKey: fcmServerKey.trim(),
+        showGoogleAds,
+        adMobBannerAdUnitId: adMobBannerAdUnitId.trim(),
+        adSensePublisherId: adSensePublisherId.trim(),
+        adSenseSlotId: adSenseSlotId.trim(),
       });
       setSystemSettings(updated);
       onUserUpdated({ ...user, appName: updated.appName });
-      show({ kind: 'success', text: 'System & FCM settings saved to database' });
+      show({ kind: 'success', text: 'System, FCM & Google Ads settings saved successfully' });
     } catch (err) {
       show({ kind: 'error', text: errMsg(err, 'Failed to save system settings') });
     } finally {
@@ -172,8 +184,91 @@ export default function Settings({ user, onUserUpdated }: Props) {
               />
             </div>
 
+            {/* Google Ads Monetization & Display Settings */}
+            <div
+              style={{
+                marginTop: 24,
+                paddingTop: 18,
+                borderTop: '1px dashed var(--line)',
+                marginBottom: 18,
+              }}
+            >
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12, color: '#0288d1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                📢 Google Ads &amp; Monetization Settings
+              </h3>
+
+              {/* Show / Hide Ads Toggle */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginBottom: 16,
+                  background: 'var(--bg-muted, #f8fafc)',
+                  padding: '12px 16px',
+                  borderRadius: 8,
+                  border: '1px solid var(--line)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  id="showGoogleAdsToggle"
+                  checked={showGoogleAds}
+                  onChange={(e) => setShowGoogleAds(e.target.checked)}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+                <label htmlFor="showGoogleAdsToggle" style={{ fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}>
+                  Enable Google Ads in Mobile App (Current Status: {showGoogleAds ? '🟢 VISIBLE' : '🔴 HIDDEN'})
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: 4 }}>
+                    AdMob Banner Ad Unit ID (Android Native)
+                  </label>
+                  <input
+                    style={{ width: '100%', margin: 0, fontFamily: 'monospace', fontSize: '0.82rem' }}
+                    type="text"
+                    value={adMobBannerAdUnitId}
+                    onChange={(e) => setAdMobBannerAdUnitId(e.target.value)}
+                    placeholder="ca-app-pub-3940256099942544/6300978111"
+                  />
+                  <span className="muted" style={{ fontSize: '0.75rem' }}>
+                    Google Play Store production banner unit ID
+                  </span>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: 4 }}>
+                    Google AdSense Publisher ID (Web)
+                  </label>
+                  <input
+                    style={{ width: '100%', margin: 0, fontFamily: 'monospace', fontSize: '0.82rem' }}
+                    type="text"
+                    value={adSensePublisherId}
+                    onChange={(e) => setAdSensePublisherId(e.target.value)}
+                    placeholder="ca-pub-3940256099942544"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: 4 }}>
+                    Google AdSense Slot ID (Web)
+                  </label>
+                  <input
+                    style={{ width: '100%', margin: 0, fontFamily: 'monospace', fontSize: '0.82rem' }}
+                    type="text"
+                    value={adSenseSlotId}
+                    onChange={(e) => setAdSenseSlotId(e.target.value)}
+                    placeholder="6300978111"
+                  />
+                </div>
+              </div>
+            </div>
+
             <button className="btn-primary" type="submit" disabled={savingSystemSettings}>
-              {savingSystemSettings ? 'Saving Settings…' : 'Save App & FCM Settings'}
+              {savingSystemSettings ? 'Saving Settings…' : 'Save App, FCM & Google Ads Settings'}
             </button>
           </form>
         </div>

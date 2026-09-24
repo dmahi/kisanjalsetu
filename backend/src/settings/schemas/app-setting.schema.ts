@@ -14,6 +14,18 @@ export class AppSetting {
   @Prop({ trim: true })
   firebaseServerKey?: string;
 
+  @Prop({ default: false })
+  showGoogleAds?: boolean;
+
+  @Prop({ trim: true, default: 'ca-app-pub-3940256099942544/6300978111' })
+  adMobBannerAdUnitId?: string;
+
+  @Prop({ trim: true, default: 'ca-pub-3940256099942544' })
+  adSensePublisherId?: string;
+
+  @Prop({ trim: true, default: '6300978111' })
+  adSenseSlotId?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'User' })
   updatedBy?: Types.ObjectId;
 }

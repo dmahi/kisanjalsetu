@@ -6,12 +6,13 @@ import {
   BannerAdPosition,
   BannerAdSize,
 } from '@capacitor-community/admob';
+import { fetchPublicSettings } from '../api/settings';
 
 const TEST_BANNER_AD_UNIT_ID = 'ca-app-pub-3940256099942544/6300978111';
 
 interface Props {
-  adClient?: string; // Optional Google AdSense publisher ID e.g. "ca-pub-3940256099942544"
-  adSlot?: string;   // Optional Google AdSense slot ID e.g. "6300978111"
+  adClient?: string;
+  adSlot?: string;
 }
 
 export function GoogleAgriAds({
@@ -20,8 +21,34 @@ export function GoogleAgriAds({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [topMargin, setTopMargin] = useState<number | null>(null);
+  const [showAds, setShowAds] = useState<boolean>(false);
+  const [adUnitId, setAdUnitId] = useState<string>(TEST_BANNER_AD_UNIT_ID);
+  const [client, setClient] = useState<string>(adClient);
+  const [slot, setSlot] = useState<string>(adSlot);
+
+  // Fetch public settings from admin backend
+  useEffect(() => {
+    let active = true;
+    fetchPublicSettings()
+      .then((settings) => {
+        if (!active) return;
+        setShowAds(Boolean(settings.showGoogleAds));
+        if (settings.adMobBannerAdUnitId) setAdUnitId(settings.adMobBannerAdUnitId);
+        if (settings.adSensePublisherId) setClient(settings.adSensePublisherId);
+        if (settings.adSenseSlotId) setSlot(settings.adSenseSlotId);
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch public settings for ads', err);
+        if (active) setShowAds(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
+    if (!showAds) return;
     const updatePosition = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
@@ -41,17 +68,18 @@ export function GoogleAgriAds({
       window.removeEventListener('scroll', updatePosition);
       clearTimeout(timer);
     };
-  }, []);
+  }, [showAds]);
 
   // Native Capacitor AdMob initialization & banner display inside widget card
   useEffect(() => {
-    if (Capacitor.getPlatform() !== 'android' || topMargin === null) return;
+    if (!showAds || Capacitor.getPlatform() !== 'android' || topMargin === null) return;
 
     let mounted = true;
+    const isTestId = adUnitId === TEST_BANNER_AD_UNIT_ID;
 
     const showAdMob = async () => {
       try {
-        await AdMob.initialize({ initializeForTesting: true });
+        await AdMob.initialize({ initializeForTesting: isTestId });
         let consent = await AdMob.requestConsentInfo();
         if (consent.status === AdmobConsentStatus.REQUIRED) {
           consent = await AdMob.showConsentForm();
@@ -60,11 +88,11 @@ export function GoogleAgriAds({
         if (!mounted) return;
 
         await AdMob.showBanner({
-          adId: TEST_BANNER_AD_UNIT_ID,
+          adId: adUnitId,
           adSize: BannerAdSize.ADAPTIVE_BANNER,
           position: BannerAdPosition.TOP_CENTER,
           margin: topMargin,
-          isTesting: true,
+          isTesting: isTestId,
           npa: true,
         });
       } catch (err) {
@@ -78,18 +106,23 @@ export function GoogleAgriAds({
       mounted = false;
       void AdMob.removeBanner().catch(() => undefined);
     };
-  }, [topMargin]);
+  }, [showAds, topMargin, adUnitId]);
 
   // Web / Webview Google AdSense script push
   useEffect(() => {
-    if (Capacitor.getPlatform() === 'android') return;
+    if (!showAds || Capacitor.getPlatform() === 'android') return;
     try {
       // @ts-ignore
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch {
       /* ignore script push errors */
     }
-  }, [adClient, adSlot]);
+  }, [showAds, client, slot]);
+
+  // HIDE COMPLETELY UNLESS SHOW_ADS IS TOGGLED ON BY ADMIN
+  if (!showAds) {
+    return null;
+  }
 
   return (
     <div
@@ -171,8 +204,8 @@ export function GoogleAgriAds({
         <ins
           className="adsbygoogle"
           style={{ display: 'block', width: '100%', minHeight: '60px', textAlign: 'center' }}
-          data-ad-client={adClient}
-          data-ad-slot={adSlot}
+          data-ad-client={client}
+          data-ad-slot={slot}
           data-ad-format="auto"
           data-full-width-responsive="true"
         />
@@ -180,7 +213,7 @@ export function GoogleAgriAds({
         {/* Fallback Responsive Google Ad Banner iframe */}
         <iframe
           title="Google Agri Ad"
-          src={`https://googleads.g.doubleclick.net/pagead/ads?client=${adClient}&slotname=${adSlot}&w=320&h=50`}
+          src={`https://googleads.g.doubleclick.net/pagead/ads?client=${client}&slotname=${slot}&w=320&h=50`}
           style={{
             width: '100%',
             height: 60,

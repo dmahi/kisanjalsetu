@@ -26,6 +26,10 @@ export class SettingsController {
       appName: doc.appName,
       firebaseServiceAccount: doc.firebaseServiceAccount || '',
       firebaseServerKey: doc.firebaseServerKey || '',
+      showGoogleAds: doc.showGoogleAds ?? false,
+      adMobBannerAdUnitId: doc.adMobBannerAdUnitId || 'ca-app-pub-3940256099942544/6300978111',
+      adSensePublisherId: doc.adSensePublisherId || 'ca-pub-3940256099942544',
+      adSenseSlotId: doc.adSenseSlotId || '6300978111',
       updatedBy: doc.updatedBy ? String(doc.updatedBy) : null,
       updatedAt: (doc as any).updatedAt,
     };
@@ -41,6 +45,10 @@ export class SettingsController {
       appName: doc.appName,
       firebaseServiceAccount: doc.firebaseServiceAccount || '',
       firebaseServerKey: doc.firebaseServerKey || '',
+      showGoogleAds: doc.showGoogleAds ?? false,
+      adMobBannerAdUnitId: doc.adMobBannerAdUnitId || 'ca-app-pub-3940256099942544/6300978111',
+      adSensePublisherId: doc.adSensePublisherId || 'ca-pub-3940256099942544',
+      adSenseSlotId: doc.adSenseSlotId || '6300978111',
       updatedBy: doc.updatedBy ? String(doc.updatedBy) : null,
       updatedAt: (doc as any).updatedAt,
     };
