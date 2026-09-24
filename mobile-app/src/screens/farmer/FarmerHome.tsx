@@ -20,6 +20,7 @@ import { useSocketEvent } from '../../lib/useSocketEvents';
 
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
 import { CurrentLocationWeather } from '../../components/CurrentLocationWeather';
+import { GoogleAgriAds } from '../../components/GoogleAgriAds';
 
 export default function FarmerHome() {
   const farmerTubewellId = useSelectionStore((s) => s.farmerTubewellId);
@@ -171,6 +172,9 @@ export default function FarmerHome() {
       <Card>
         <TubewellSwitcher />
       </Card>
+
+      {/* Google Ads for Farmers, Crops & Insecticides / Pesticides */}
+      <GoogleAgriAds />
 
       {/* Real-time Current Location Weather Card */}
       <CurrentLocationWeather tubewellName={selectedTw?.name} />

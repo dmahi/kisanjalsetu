@@ -21,6 +21,7 @@ import { triggerHapticSelection } from '../../utils/haptics';
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
 import { LanguageSelectorPill } from '../../components/LanguageSelectorPill';
 import { CurrentLocationWeather } from '../../components/CurrentLocationWeather';
+import { GoogleAgriAds } from '../../components/GoogleAgriAds';
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -417,6 +418,9 @@ export default function OwnerDashboard() {
           ))}
         </select>
       </Card>
+
+      {/* Google Ads for Farmers, Crops & Insecticides / Pesticides */}
+      <GoogleAgriAds />
 
       {/* Real-time Current Location Weather Card */}
       <CurrentLocationWeather tubewellName={selectedTubewellObj?.name} />
