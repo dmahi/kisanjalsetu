@@ -287,6 +287,42 @@ export class WaterTurnAlertsService {
       .exec();
     if (!updated) throw new ConflictException('Alert is already cancelled');
 
+    // Notify the farmer immediately so their ringing tone stops and the
+    // alert UI clears (push + socket, both targeted at the farmer).
+    const farmer = await this.usersService.findById(String(updated.targetCustomerId));
+    await this.notificationsService
+      .create({
+        userId: String(updated.targetCustomerId),
+        title: 'Water Turn Alert Cancelled',
+        body: `Your water turn alert was cancelled by the owner.`,
+        type: 'water_turn_cancelled',
+        channel: ALERT_CHANNEL,
+        priority: 'high',
+        data: {
+          type: 'water_turn_cancelled',
+          water_turn_alert_id: String(updated._id),
+          tubewell_id: String(updated.tubewellId),
+          tubewell_name: (await this.tubewellsService.findById(String(updated.tubewellId)))?.name || '',
+          farmer_id: String(updated.targetCustomerId),
+          farmer_name: farmer?.name || '',
+          cancelled_reason: reason?.trim() || '',
+        },
+      })
+      .catch((err) => {
+        this.logger.warn(`water_turn cancel push to farmer failed: ${err?.message || err}`);
+      });
+
+    this.waterGateway.emitWaterTurnAlertStatus({
+      alertId: String(updated._id),
+      tubewellId: String(updated.tubewellId),
+      ownerId,
+      targetCustomerId: String(updated.targetCustomerId),
+      farmerName: farmer?.name || null,
+      tubewellName: (await this.tubewellsService.findById(String(updated.tubewellId)))?.name || null,
+      status: WATER_TURN_STATUS.CANCELLED,
+      type: 'water_turn_cancelled',
+    });
+
     await this.logsService.create({
       userId: ownerId,
       action: 'water_turn_alert_cancelled',

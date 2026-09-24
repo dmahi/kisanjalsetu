@@ -15,7 +15,7 @@ import { flushQueue, queuedCount } from './lib/offlineQueue';
 import { AppRoutes } from './router';
 import { BottomNav } from './navigation';
 import { connectSocket, disconnectSocket, joinTubewell, onSocketEvent } from './lib/socket';
-import { startAlertRingtone } from './utils/audio';
+import { startAlertRingtone, stopAlertRingtone } from './utils/audio';
 
 import { initNativeStatusBar } from './utils/native';
 import RefreshablePage from './components/RefreshablePage';
@@ -60,6 +60,20 @@ export default function App() {
       const targetId = p?.targetCustomerId || p?.customerId;
       if (targetId && targetId === user.id) {
         startAlertRingtone();
+      }
+    });
+  }, [user?.id, user?.role]);
+
+  // Owner cancelled the alert → immediately stop the farmer's ringing tone so
+  // it doesn't keep playing for the full 30s attempt after cancellation.
+  useEffect(() => {
+    if (!user || user.role !== 'farmer') return;
+    return onSocketEvent('waterTurnAlertStatus', (p) => {
+      const targetId = p?.targetCustomerId || p?.customerId;
+      const status = String(p?.status || '').toUpperCase();
+      const type = String(p?.type || '');
+      if (targetId && targetId === user.id && (status === 'CANCELLED' || type === 'water_turn_cancelled')) {
+        stopAlertRingtone();
       }
     });
   }, [user?.id, user?.role]);

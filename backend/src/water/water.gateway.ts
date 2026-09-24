@@ -281,7 +281,11 @@ export class WaterGateway implements OnGatewayConnection, OnGatewayDisconnect {
     type?: string;
   }) {
     this.emitTo(
-      [data.ownerId ? `user:${data.ownerId}` : '', `tubewell:${data.tubewellId}`].filter(Boolean),
+      [
+        data.ownerId ? `user:${data.ownerId}` : '',
+        `user:${data.targetCustomerId}`,
+        `tubewell:${data.tubewellId}`,
+      ].filter(Boolean),
       'waterTurnAlertStatus',
       data,
     );

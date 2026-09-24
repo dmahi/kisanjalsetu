@@ -4,7 +4,7 @@ import { Preferences } from '@capacitor/preferences';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { isCapacitorNative } from '../api/config';
 import { notificationsApi } from '../api/common';
-import { startAlertRingtone } from '../utils/audio';
+import { startAlertRingtone, stopAlertRingtone } from '../utils/audio';
 
 export interface SessionCounterInfo {
   sessionId: string;
@@ -308,7 +308,10 @@ async function ensureNotificationChannel(): Promise<void> {
       description: 'Get ready / confirm READY or NOT READY for your water turn',
       importance: 5, // IMPORTANCE_MAX: Heads-up banner display
       visibility: 1, // VISIBILITY_PUBLIC: Show full banner on lock screen
-      sound: 'default', // Plays system notification ringtone reliably on all Android phones
+      // Custom loud ringing tone in res/raw/incoming_call.wav. Makes the alert
+      // ring with the loud tone even when the app is closed/backgrounded
+      // (the OS plays the channel sound while the webview/JS is not running).
+      sound: 'incoming_call',
       vibration: true,
       lights: true,
       lightColor: '#046A38',
@@ -318,7 +321,18 @@ async function ensureNotificationChannel(): Promise<void> {
   }
 }
 
-/** Show the incoming foreground FCM notification as a local banner. */
+/** Latest known app state (active = foreground). Updated by initPushNotifications. */
+let appIsActive = true;
+
+/** True when the app is in the foreground; used to decide banner/tone behavior. */
+export function isAppForeground(): boolean {
+  return appIsActive;
+}
+
+/** Show the incoming FCM notification. The Capacitor plugin already posts the
+ *  OS banner (presentationOptions badge/sound/alert) in every app state, so we
+ *  must NOT schedule a second local banner — that was the duplicate. We only
+ *  drive the loud JS ringtone while in the foreground, and stop tone on cancel. */
 function displayForegroundNotification(payload: Record<string, unknown>): void {
   const raw = payload?.data;
   const parsed =
@@ -327,30 +341,17 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
       : (raw as Record<string, unknown> | undefined) ?? {};
   const type = typeof parsed?.type === 'string' ? parsed.type : '';
   const isTurnAlert = type.startsWith('water_turn');
-  // Play the alert ringtone straight from the push (socket-independent).
-  if (isTurnAlert) {
+  // Owner cancelled → stop any ringing tone immediately at the farmer side.
+  if (type === 'water_turn_cancelled') {
+    stopAlertRingtone();
+    return;
+  }
+  // Play the alert ringtone straight from the push (socket-independent), but
+  // only while the app is open — when closed/background the OS channel sound
+  // (incoming_call) already rings via the plugin-posted banner.
+  if (isTurnAlert && appIsActive) {
     startAlertRingtone();
   }
-  void (async () => {
-    if (!(await ensurePermissions())) return;
-    try {
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            id: Math.floor(Date.now() / 1000) % 2147483647,
-            title: payload?.title ? String(payload.title) : 'KisanJalSetu',
-            body: payload?.body ? String(payload.body) : '',
-            channelId: isTurnAlert ? WATER_ALERT_CHANNEL_ID : GENERAL_CHANNEL_ID,
-            sound: 'default',
-            smallIcon: 'ic_stat_water',
-            extra: parsed,
-          },
-        ],
-      });
-    } catch (err) {
-      console.warn('foreground notification failed', err);
-    }
-  })();
 }
 
 import { notificationRouteFor } from './deeplink';
@@ -405,6 +406,19 @@ export async function initPushNotifications(): Promise<void> {
       await ps.requestPermissions();
     }
     await ps.register().catch(() => undefined);
+
+    // Track app foreground state so we only drive the loud JS ringtone while
+    // the app is open (closed/background uses the OS channel sound instead).
+    try {
+      const state = await App.getState();
+      appIsActive = state.isActive;
+      void App.addListener('appStateChange', (s) => {
+        appIsActive = s.isActive;
+        if (!s.isActive) stopAlertRingtone();
+      }).catch(() => undefined);
+    } catch {
+      /* ignore single-activity quirks */
+    }
 
     ps.addListener('registration', async (token: { value: string }) => {
       latestFcmToken = token.value;

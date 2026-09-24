@@ -61,6 +61,16 @@ export default function FarmerWaterTurnAlert() {
     void load(alertId || undefined);
   });
 
+  // Owner cancelled the alert → refresh so the screen clears the ringing state;
+  // the ringtone effect below then stops the tone immediately.
+  useSocketEvent('waterTurnAlertStatus', (p) => {
+    const status = String(p?.status || '').toUpperCase();
+    const type = String(p?.type || '');
+    if (status === 'CANCELLED' || type === 'water_turn_cancelled') {
+      void load(alertId || undefined);
+    }
+  });
+
   // Preselect the first not-ready reason once options arrive.
   useEffect(() => {
     if (!notReadyReason && notReadyOptions.length > 0) {

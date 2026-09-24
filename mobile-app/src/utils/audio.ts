@@ -7,6 +7,10 @@ let activeAudioElement: HTMLAudioElement | null = null;
 let audioContext: AudioContext | null = null;
 let isRinging = false;
 let ringIntervalId: ReturnType<typeof setInterval> | null = null;
+let ringAutoStopTimeout: ReturnType<typeof setTimeout> | null = null;
+
+/** Ringtone duration cap: one attempt rings for at most this long (ms). */
+const MAX_RING_MS = 30_000;
 
 /**
  * Start ringing loud alert sound
@@ -14,6 +18,12 @@ let ringIntervalId: ReturnType<typeof setInterval> | null = null;
 export function startAlertRingtone(): void {
   if (isRinging) return;
   isRinging = true;
+
+  // Auto-stop after 30 seconds (one attempt) so the tone never loops forever.
+  if (ringAutoStopTimeout) clearTimeout(ringAutoStopTimeout);
+  ringAutoStopTimeout = setTimeout(() => {
+    stopAlertRingtone();
+  }, MAX_RING_MS);
 
   /* 1. Try HTML5 Audio player with public sound asset */
   try {
