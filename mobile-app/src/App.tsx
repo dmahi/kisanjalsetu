@@ -64,15 +64,22 @@ export default function App() {
     });
   }, [user?.id, user?.role]);
 
-  // Owner cancelled the alert → immediately stop the farmer's ringing tone so
-  // it doesn't keep playing for the full 30s attempt after cancellation.
+  // Farmer responded or alert status updated → immediately stop the ringing tone.
   useEffect(() => {
     if (!user || user.role !== 'farmer') return;
     return onSocketEvent('waterTurnAlertStatus', (p) => {
       const targetId = p?.targetCustomerId || p?.customerId;
       const status = String(p?.status || '').toUpperCase();
       const type = String(p?.type || '');
-      if (targetId && targetId === user.id && (status === 'CANCELLED' || type === 'water_turn_cancelled')) {
+      if (
+        targetId &&
+        targetId === user.id &&
+        (status === 'READY' ||
+          status === 'NOT_READY' ||
+          status === 'CANCELLED' ||
+          status === 'NO_RESPONSE' ||
+          type === 'water_turn_cancelled')
+      ) {
         stopAlertRingtone();
       }
     });

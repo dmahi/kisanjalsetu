@@ -588,16 +588,20 @@ export class WaterTurnAlertsService {
     if (!t?.ownerId) return;
     const farmer = await this.usersService.findById(String(doc.targetCustomerId));
 
+    const isReady = doc.response === 'ready';
+    const isNoResponse = type === 'water_turn_no_response';
+    const statusLabel = isNoResponse ? 'NO RESPONSE' : isReady ? 'READY 👍' : 'NOT READY ✋';
+    const noteText = doc.responseNote ? ` (${doc.responseNote})` : '';
+
     await this.notificationsService
       .create({
         userId: String(t.ownerId),
         title,
-        body: `${farmer?.name || 'Farmer'} (${
-          type === 'water_turn_no_response' ? 'no response' : doc.response === 'ready' ? 'READY' : 'NOT READY'
-        }) · ${t.name}`,
+        body: `${farmer?.name || 'Farmer'} is ${statusLabel} · ${t.name}${noteText}`,
         type,
         channel: ALERT_CHANNEL,
         priority: 'high',
+        sound: 'default',
         data: {
           type,
           water_turn_alert_id: String(doc._id),
@@ -608,6 +612,7 @@ export class WaterTurnAlertsService {
           farmer_name: farmer?.name || '',
           field_id: doc.fieldId ? String(doc.fieldId) : '',
           response: doc.response || '',
+          response_note: doc.responseNote || '',
           attempt_number: String(doc.attemptNumber),
         },
       })

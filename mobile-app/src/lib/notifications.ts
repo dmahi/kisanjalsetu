@@ -4,7 +4,7 @@ import { Preferences } from '@capacitor/preferences';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { isCapacitorNative } from '../api/config';
 import { notificationsApi } from '../api/common';
-import { startAlertRingtone, stopAlertRingtone } from '../utils/audio';
+import { playNotificationChime, startAlertRingtone, stopAlertRingtone } from '../utils/audio';
 
 export interface SessionCounterInfo {
   sessionId: string;
@@ -340,17 +340,48 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
       ? safeParse(raw)
       : (raw as Record<string, unknown> | undefined) ?? {};
   const type = typeof parsed?.type === 'string' ? parsed.type : '';
-  const isTurnAlert = type.startsWith('water_turn');
+  const isTurnAlert = type === 'water_turn_alert' || type === 'water_turn_alert_retry';
+
   // Owner cancelled → stop any ringing tone immediately at the farmer side.
   if (type === 'water_turn_cancelled') {
     stopAlertRingtone();
     return;
   }
-  // Play the alert ringtone straight from the push (socket-independent), but
-  // only while the app is open — when closed/background the OS channel sound
-  // (incoming_call) already rings via the plugin-posted banner.
+
+  // 1. Sound behavior: incoming_call tone plays ONLY when water_turn_alert is sent to farmer.
+  //    All other notifications play a short chime sound.
   if (isTurnAlert && appIsActive) {
     startAlertRingtone();
+  } else if (appIsActive) {
+    playNotificationChime();
+  }
+
+  // 2. Visual popup: Show notification banner on screen for every push notification.
+  const title =
+    typeof payload?.title === 'string'
+      ? payload.title
+      : typeof parsed?.title === 'string'
+        ? parsed.title
+        : '';
+  const body =
+    typeof payload?.body === 'string'
+      ? payload.body
+      : typeof parsed?.body === 'string'
+        ? parsed.body
+        : '';
+
+  if (title) {
+    LocalNotifications.schedule({
+      notifications: [
+        {
+          id: Math.floor((Date.now() % 100000) + Math.random() * 1000),
+          title,
+          body: body || '',
+          channelId: isTurnAlert ? WATER_ALERT_CHANNEL_ID : GENERAL_CHANNEL_ID,
+          smallIcon: 'ic_stat_water',
+        },
+      ],
+    }).catch(() => undefined);
   }
 }
 
@@ -389,8 +420,12 @@ function safeParse(raw: string): Record<string, unknown> {
  * server push. One-time setup in the app bootstrap. Also wires channel
  * creation, foreground display, and background/closed tap navigation.
  */
+let pushInitialized = false;
+
 export async function initPushNotifications(): Promise<void> {
   if (!isCapacitorNative()) return;
+  if (pushInitialized) return;
+  pushInitialized = true;
 
   // 1. Explicitly prompt user for local & push notification permissions on Android 13+
   await ensurePermissions();

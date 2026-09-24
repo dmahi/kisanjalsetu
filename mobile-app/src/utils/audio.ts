@@ -137,3 +137,48 @@ function startSynthesizedRingtone(): void {
   playRingBurst();
   ringIntervalId = setInterval(playRingBurst, 3000);
 }
+
+/**
+ * Play a short notification chime sound when general push notifications are received
+ */
+export function playNotificationChime(): void {
+  playSynthesizedChime();
+}
+
+/**
+ * Synthesize a two-tone ascending chime (587 Hz -> 880 Hz) using Web Audio API
+ */
+function playSynthesizedChime(): void {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, now); // D5
+    osc.frequency.setValueAtTime(880, now + 0.12); // A5
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.5);
+    setTimeout(() => {
+      try {
+        void ctx.close();
+      } catch {
+        /* ignore */
+      }
+    }, 600);
+  } catch {
+    /* ignore audio context restrictions */
+  }
+}

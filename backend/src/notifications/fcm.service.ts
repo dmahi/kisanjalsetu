@@ -152,18 +152,27 @@ export class FcmService {
       .lean()
       .exec();
 
+    // Deduplicate tokens by trimmed value to prevent duplicate sends if multiple active DB rows exist
+    const uniqueMap = new Map<string, Types.ObjectId>();
+    for (const d of devices) {
+      const trimmed = d.token ? d.token.trim() : '';
+      if (trimmed && !uniqueMap.has(trimmed)) {
+        uniqueMap.set(trimmed, d._id);
+      }
+    }
+
     let sent = 0;
     let failed = 0;
     let deactivated = 0;
-    for (const t of devices) {
-      const res = await this.pushSender.send(t.token, payload);
+    for (const [token, docId] of uniqueMap.entries()) {
+      const res = await this.pushSender.send(token, payload);
       if (!res.ok) {
         failed++;
         if (res.permanent) {
           deactivated++;
           await this.deviceTokenModel
             .updateOne(
-              { _id: t._id },
+              { _id: docId },
               {
                 isActive: false,
                 failureReason: res.error || 'unregistered_token',
@@ -174,7 +183,7 @@ export class FcmService {
         } else {
           await this.deviceTokenModel
             .updateOne(
-              { _id: t._id },
+              { _id: docId },
               { lastFailureAt: new Date(), failureReason: res.error || 'temporary_failure' },
             )
             .exec();
@@ -182,7 +191,7 @@ export class FcmService {
         continue;
       }
       sent++;
-      await this.deviceTokenModel.updateOne({ _id: t._id }, { lastSuccessAt: new Date() }).exec();
+      await this.deviceTokenModel.updateOne({ _id: docId }, { lastSuccessAt: new Date() }).exec();
     }
     return { sent, failed, deactivated };
   }
