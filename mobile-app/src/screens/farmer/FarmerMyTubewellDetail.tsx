@@ -7,6 +7,7 @@ import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useSessionTimerStore } from '../../store/sessionTimer.store';
 import { useLocale } from '../../store/locale.store';
 import { useMyTubewells } from './hooks';
+import { useSocketEvent } from '../../lib/useSocketEvents';
 
 export default function FarmerMyTubewellDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,15 @@ export default function FarmerMyTubewellDetail() {
 
   const tw = tubewells.find((x) => x.tubewellId === id);
   const approved = tw?.membershipStatus === 'approved';
+
+  // Real-time: refresh instantly when the owner starts/stops water for this tubewell.
+  const [socketRefresh, setSocketRefresh] = useState(0);
+  useSocketEvent('waterStarted', (p: any) => {
+    if (p?.tubewellId && p.tubewellId === id) setSocketRefresh((v) => v + 1);
+  });
+  useSocketEvent('waterStopped', (p: any) => {
+    if (p?.tubewellId && p.tubewellId === id) setSocketRefresh((v) => v + 1);
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -54,7 +64,7 @@ export default function FarmerMyTubewellDetail() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [id]);
+  }, [id, socketRefresh]);
 
   const reconcile = async (list: WaterSession[]) => {
     const active = list.find((s) => s.status === 'running');

@@ -16,6 +16,7 @@ import { useSidebarStore } from '../../store/sidebar.store';
 import { triggerHapticSelection } from '../../utils/haptics';
 import { TubewellSwitcher } from './TubewellSwitcher';
 import { useMyTubewells } from './hooks';
+import { useSocketEvent } from '../../lib/useSocketEvents';
 
 import { WaterPumpAnimation } from '../../components/WaterPumpAnimation';
 import { CurrentLocationWeather } from '../../components/CurrentLocationWeather';
@@ -39,6 +40,15 @@ export default function FarmerHome() {
   const setRunning = useSessionTimerStore((s) => s.setRunning);
 
   const selectedTw = tubewells.find((tw) => tw.tubewellId === farmerTubewellId);
+
+  // Real-time: refresh instantly when the owner starts/stops water for this tubewell.
+  const [socketRefresh, setSocketRefresh] = useState(0);
+  useSocketEvent('waterStarted', (p: any) => {
+    if (p?.tubewellId && p.tubewellId === farmerTubewellId) setSocketRefresh((v) => v + 1);
+  });
+  useSocketEvent('waterStopped', (p: any) => {
+    if (p?.tubewellId && p.tubewellId === farmerTubewellId) setSocketRefresh((v) => v + 1);
+  });
 
   useEffect(() => {
     if (!farmerTubewellId) {
@@ -75,7 +85,7 @@ export default function FarmerHome() {
     return () => {
       cancelled = true;
     };
-  }, [farmerTubewellId]);
+  }, [farmerTubewellId, socketRefresh]);
 
   // Poll while idle so an owner-stop (or start from another device) is picked up.
   useEffect(() => {

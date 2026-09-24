@@ -138,7 +138,6 @@ export class PushSender {
         sound: payload.sound || (payload.priority === 'high' ? 'incoming_call' : 'default'),
       };
       if (payload.priority === 'high') {
-        androidNotification.priority = 'PRIORITY_MAX';
         androidNotification.visibility = 'PUBLIC';
         androidNotification.default_sound = false;
         androidNotification.default_vibrate_timings = false;

@@ -4,6 +4,7 @@ import { Preferences } from '@capacitor/preferences';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { isCapacitorNative } from '../api/config';
 import { notificationsApi } from '../api/common';
+import { startAlertRingtone } from '../utils/audio';
 
 export interface SessionCounterInfo {
   sessionId: string;
@@ -326,6 +327,10 @@ function displayForegroundNotification(payload: Record<string, unknown>): void {
       : (raw as Record<string, unknown> | undefined) ?? {};
   const type = typeof parsed?.type === 'string' ? parsed.type : '';
   const isTurnAlert = type.startsWith('water_turn');
+  // Play the alert ringtone straight from the push (socket-independent).
+  if (isTurnAlert) {
+    startAlertRingtone();
+  }
   void (async () => {
     if (!(await ensurePermissions())) return;
     try {

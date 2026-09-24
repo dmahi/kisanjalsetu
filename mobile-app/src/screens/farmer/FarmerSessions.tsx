@@ -7,6 +7,7 @@ import { TubewellSwitcher } from './TubewellSwitcher';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
 import { useMyTubewells } from './hooks';
+import { useSocketEvent } from '../../lib/useSocketEvents';
 
 type Filter = 'all' | 'paid' | 'unpaid' | 'partial' | 'running';
 
@@ -18,6 +19,15 @@ export default function FarmerSessions() {
   const [sessions, setSessions] = useState<WaterSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
+
+  // Real-time: refresh instantly when the owner starts/stops water for this tubewell.
+  const [socketRefresh, setSocketRefresh] = useState(0);
+  useSocketEvent('waterStarted', (p: any) => {
+    if (p?.tubewellId && p.tubewellId === tubewellId) setSocketRefresh((v) => v + 1);
+  });
+  useSocketEvent('waterStopped', (p: any) => {
+    if (p?.tubewellId && p.tubewellId === tubewellId) setSocketRefresh((v) => v + 1);
+  });
 
   useEffect(() => {
     if (!tubewellId) {
@@ -41,7 +51,7 @@ export default function FarmerSessions() {
     return () => {
       cancelled = true;
     };
-  }, [tubewellId]);
+  }, [tubewellId, socketRefresh]);
 
   const filtered = sessions.filter((s) => {
     if (filter === 'all') return true;
