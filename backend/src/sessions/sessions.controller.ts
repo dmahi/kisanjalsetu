@@ -22,6 +22,7 @@ import {
   StopSessionDto,
   UpdateSessionDto,
   CustomerStartSessionDto,
+  UpdateSessionEstimateDto,
 } from './dto/session.dto';
 import { TubewellsService } from '../tubewells/tubewells.service';
 import { UsersService } from '../users/users.service';
@@ -61,6 +62,10 @@ export class OwnerSessionsController {
       startDatetime: session.startDatetime,
       endDatetime: session.endDatetime || null,
       durationMinutes: session.durationMinutes ?? null,
+      estimatedDurationMinutes: session.estimatedDurationMinutes ?? null,
+      estimatedEndDatetime: session.estimatedEndDatetime || null,
+      currentDelayReason: session.currentDelayReason || null,
+      estimateUpdatedAt: session.estimateUpdatedAt || null,
       billableMinutes: session.billableMinutes ?? null,
       ratePerHourPaise: session.ratePerHourPaise,
       grossAmountPaise: session.grossAmountPaise,
@@ -89,6 +94,21 @@ export class OwnerSessionsController {
   @Post(':id/stop')
   async stop(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: StopSessionDto) {
     const session = await this.sessionsService.stop(user.id, id, dto.endDatetime ? new Date(dto.endDatetime) : undefined);
+    return this.presenter(session);
+  }
+
+  @Post(':id/estimate')
+  async updateEstimate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateSessionEstimateDto,
+  ) {
+    const session = await this.sessionsService.updateEstimate(
+      user.id,
+      id,
+      Math.round(dto.estimatedRemainingMinutes),
+      dto.delayReason,
+    );
     return this.presenter(session);
   }
 
@@ -212,6 +232,10 @@ export class CustomerSessionsController {
       startDatetime: session.startDatetime,
       endDatetime: session.endDatetime || null,
       durationMinutes: session.durationMinutes ?? null,
+      estimatedDurationMinutes: session.estimatedDurationMinutes ?? null,
+      estimatedEndDatetime: session.estimatedEndDatetime || null,
+      currentDelayReason: session.currentDelayReason || null,
+      estimateUpdatedAt: session.estimateUpdatedAt || null,
       billableMinutes: session.billableMinutes ?? null,
       ratePerHourPaise: session.ratePerHourPaise,
       grossAmountPaise: session.grossAmountPaise,

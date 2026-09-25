@@ -4,7 +4,7 @@ import { ownerDashboardApi, type OwnerDashboard } from '../../api/owner';
 import { tubewellApi, type Tubewell } from '../../api/tubewells';
 import { waterSessionApi } from '../../api/sessions';
 import { ownerCustomerApi, type CustomerSummary } from '../../api/tubewells';
-import { waterQueueApi, type WaterQueueEntry } from '../../api/queue';
+import { waterQueueApi, type WaterQueueEntry, type TubewellQueueResponse } from '../../api/queue';
 import { waterTurnAlertsApi, type NextForTubewell } from '../../api/waterTurnAlerts';
 import type { Field } from '../../api/common';
 import { apiErrorMessage } from '../../api/client';
@@ -13,7 +13,7 @@ import { useSessionTimerStore } from '../../store/sessionTimer.store';
 import { useLocale } from '../../store/locale.store';
 import { useSocketEvent } from '../../lib/useSocketEvents';
 import { PageHeader, Card, Stat, Spinner, EmptyState, useToast, Row, ModalSheet, Pill, ShareButton } from '../../components/ui';
-import { formatINR, formatDuration, formatClock, toLocalInput } from '../../utils/formatters';
+import { formatINR, formatDuration, formatClock, formatDateTime, toLocalInput } from '../../utils/formatters';
 import { enqueueOfflineOperation } from '../../lib/offlineQueue';
 
 import { useSidebarStore } from '../../store/sidebar.store';
@@ -49,6 +49,7 @@ export default function OwnerDashboard() {
 
   // Queue state
   const [waitingQueue, setWaitingQueue] = useState<WaterQueueEntry[]>([]);
+  const [queueData, setQueueData] = useState<TubewellQueueResponse | null>(null);
   const [manualOverride, setManualOverride] = useState(false);
   const [selectedQueueEntry, setSelectedQueueEntry] = useState<WaterQueueEntry | null>(null);
 
@@ -57,6 +58,9 @@ export default function OwnerDashboard() {
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [estimateMinutes, setEstimateMinutes] = useState('10');
   const [customMinutes, setCustomMinutes] = useState('60');
+  const [delayOpen, setDelayOpen] = useState(false);
+  const [delayReason, setDelayReason] = useState('');
+  const [updatingEstimate, setUpdatingEstimate] = useState(false);
   const [sendingAlert, setSendingAlert] = useState(false);
   const [actingAlertId, setActingAlertId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
@@ -83,6 +87,7 @@ export default function OwnerDashboard() {
   useSocketEvent('waterRequestCreated', handleRequestCreated);
   useSocketEvent('waterRequestAccepted', handleRequestCreated);
   useSocketEvent('waterRequestCancelled', handleRequestCreated);
+  useSocketEvent('waterQueueChanged', handleSessionEvent);
 
   // Load my tubewells once
   useEffect(() => {
@@ -107,9 +112,14 @@ export default function OwnerDashboard() {
     let cancelled = false;
     const load = async () => {
       try {
-        const data = await ownerDashboardApi.dashboard(ownerTubewellId);
+        const [data, queue, turn] = await Promise.all([
+          ownerDashboardApi.dashboard(ownerTubewellId),
+          waterQueueApi.getQueue(ownerTubewellId),
+          waterTurnAlertsApi.next(ownerTubewellId).catch(() => null),
+        ]);
         if (cancelled) return;
         setDashboard(data);
+        setQueueData(queue);
 
         if (data.running) {
           const info = {
@@ -125,7 +135,6 @@ export default function OwnerDashboard() {
           void setRunning(null);
         }
 
-        const turn = await waterTurnAlertsApi.next(ownerTubewellId).catch(() => null);
         if (!cancelled) setTurnInfo(turn);
       } catch (err) {
         if (!cancelled) show(apiErrorMessage(err), 'error');
@@ -175,6 +184,7 @@ export default function OwnerDashboard() {
     try {
       const qRes = await waterQueueApi.getQueue(ownerTubewellId);
       const waiting = qRes.waiting || [];
+      setQueueData(qRes);
       setWaitingQueue(waiting);
 
       if (waiting.length > 0) {
@@ -286,7 +296,12 @@ export default function OwnerDashboard() {
   const refreshTurn = async () => {
     if (!ownerTubewellId) return;
     try {
-      setTurnInfo(await waterTurnAlertsApi.next(ownerTubewellId));
+      const [turn, queue] = await Promise.all([
+        waterTurnAlertsApi.next(ownerTubewellId),
+        waterQueueApi.getQueue(ownerTubewellId),
+      ]);
+      setTurnInfo(turn);
+      setQueueData(queue);
     } catch {
       /* keep last known */
     }
@@ -306,6 +321,25 @@ export default function OwnerDashboard() {
       show(apiErrorMessage(err), 'error');
     } finally {
       setSendingAlert(false);
+    }
+  };
+
+  const handleUpdateEstimate = async () => {
+    if (!running) return;
+    const minutes = estimateMinutes === 'custom'
+      ? Math.max(1, Math.min(1440, Number(customMinutes) || 60))
+      : Number(estimateMinutes);
+    setUpdatingEstimate(true);
+    try {
+      await waterSessionApi.updateEstimate(running.id, minutes, delayReason);
+      show(`Queue estimate updated to ${minutes} minutes remaining`, 'success');
+      setDelayOpen(false);
+      setDelayReason('');
+      setSocketRefresh((value) => value + 1);
+    } catch (err) {
+      show(apiErrorMessage(err), 'error');
+    } finally {
+      setUpdatingEstimate(false);
     }
   };
 
@@ -337,6 +371,7 @@ export default function OwnerDashboard() {
 
   const activeAlert = turnInfo?.alert;
   const nextFarmer = turnInfo?.next;
+  const nextQueueEntry = queueData?.waiting.find((entry) => entry.id === nextFarmer?.id) || queueData?.waiting[0];
 
   const alertStatusText = () => {
     if (!activeAlert) return null;
@@ -436,6 +471,21 @@ export default function OwnerDashboard() {
               elapsedTime={running ? formatClock(elapsedMs) : undefined}
               currentBillAmount={running ? Math.round(currentBillPaise / 100) : undefined}
             />
+            {running && queueData?.active?.expectedCompletionAt ? (
+              <div style={{ marginTop: 10, padding: 12, borderRadius: 14, background: queueData.active.currentDelayReason ? '#fff3e0' : '#e8f5e9', border: `1px solid ${queueData.active.currentDelayReason ? '#ffb74d' : '#a5d6a7'}`, textAlign: 'center' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: queueData.active.currentDelayReason ? '#b45309' : '#1b5e20' }}>
+                  Expected completion: {formatDateTime(queueData.active.expectedCompletionAt)} · {queueData.active.estimatedRemainingMinutes ?? 0} min remaining
+                </div>
+                {queueData.active.currentDelayReason ? (
+                  <div style={{ fontSize: '0.8rem', color: '#b45309', fontWeight: 700, marginTop: 4 }}>
+                    Delay: {queueData.active.currentDelayReason}
+                  </div>
+                ) : null}
+                <button type="button" className="btn btn-sm btn-secondary" style={{ marginTop: 8 }} onClick={() => setDelayOpen(true)}>
+                  ⏱ Update ETA / Report Delay
+                </button>
+              </div>
+            ) : null}
             {running ? (
               <div style={{ marginTop: 8, textAlign: 'center' }}>
                 <ShareButton
@@ -501,6 +551,14 @@ export default function OwnerDashboard() {
               <Pill tone="info">QUEUE #{nextFarmer.queuePosition}</Pill>
             </div>
 
+            {nextQueueEntry ? (
+              <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 11, background: '#e3f2fd', color: '#1565c0', fontSize: '0.82rem', fontWeight: 700 }}>
+                ⏱ About {nextQueueEntry.estimatedWaitMinutes ?? 0} min wait
+                {nextQueueEntry.estimatedStartAt ? ` · Expected start ${formatDateTime(nextQueueEntry.estimatedStartAt)}` : ''}
+                {nextQueueEntry.expectedCompletionAt ? ` · Expected finish ${formatDateTime(nextQueueEntry.expectedCompletionAt)}` : ''}
+              </div>
+            ) : null}
+
             {activeAlert ? (
               <div style={{ marginTop: 12, backgroundColor: '#fff8e1', border: '1px solid #ffb300', borderRadius: 10, padding: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -511,8 +569,13 @@ export default function OwnerDashboard() {
                     Attempt {activeAlert.attemptNumber}/{activeAlert.maxAttempts}
                   </div>
                 </div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#333', marginTop: 4 }}>{alertStatusText()}</div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#333', marginTop: 4 }}>{alertStatusText()}</div>
+                 {activeAlert.delayNotifiedAt ? (
+                   <div style={{ fontSize: '0.82rem', color: '#b45309', fontWeight: 800, marginTop: 4 }}>
+                     ⏳ Water is running late. Updated estimates were sent to the queue.
+                   </div>
+                 ) : null}
+                 <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                   {activeAlert.status === 'not_ready' || activeAlert.status === 'no_response' ? (
                     <button
                       className="btn btn-sm btn-secondary"
@@ -643,6 +706,50 @@ export default function OwnerDashboard() {
             {submitting ? t('start_synced') : t('water_start')}
           </button>
         </form>
+      </ModalSheet>
+
+      <ModalSheet open={delayOpen} onClose={() => setDelayOpen(false)} title="Update ETA / Report Delay">
+        <p className="muted" style={{ fontSize: '0.84rem' }}>
+          Update the current completion estimate. Every waiting farmer will receive the new expected start time.
+        </p>
+        <label>Expected remaining minutes</label>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+          {['5', '10', '15', '20', '30'].map((minutes) => (
+            <button
+              key={minutes}
+              type="button"
+              className={`btn btn-sm ${estimateMinutes === minutes ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setEstimateMinutes(minutes)}
+            >
+              {minutes} {t('min')}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`btn btn-sm ${estimateMinutes === 'custom' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setEstimateMinutes('custom')}
+          >
+            {t('custom')}
+          </button>
+        </div>
+        {estimateMinutes === 'custom' ? (
+          <input type="number" min={1} max={1440} value={customMinutes} onChange={(event) => setCustomMinutes(event.target.value)} />
+        ) : null}
+        <label style={{ marginTop: 12 }}>Delay reason (optional)</label>
+        <textarea
+          rows={2}
+          value={delayReason}
+          onChange={(event) => setDelayReason(event.target.value)}
+          placeholder="Power cut, maintenance, low water..."
+        />
+        <button
+          type="button"
+          className="btn btn-primary btn-lg mt"
+          disabled={updatingEstimate || !running}
+          onClick={() => void handleUpdateEstimate()}
+        >
+          {updatingEstimate ? 'Updating…' : 'Update Queue ETA'}
+        </button>
       </ModalSheet>
 
       {/* Notify Next Farmer sheet */}

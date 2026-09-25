@@ -18,6 +18,13 @@ export interface WaterQueueEntry {
   startedAt?: string | null;
   completedAt?: string | null;
   removedAt?: string | null;
+  requestedDurationMinutes?: number | null;
+  estimatedRemainingMinutes?: number | null;
+  estimatedWaitMinutes?: number | null;
+  estimatedStartAt?: string | null;
+  expectedCompletionAt?: string | null;
+  etaAvailable?: boolean;
+  currentDelayReason?: string | null;
   createdAt: string;
 }
 
@@ -25,6 +32,7 @@ export interface TubewellQueueResponse {
   active: WaterQueueEntry | null;
   waiting: WaterQueueEntry[];
   history: WaterQueueEntry[];
+  generatedAt: string;
 }
 
 export const waterQueueApi = {

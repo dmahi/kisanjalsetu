@@ -4,7 +4,7 @@ import { waterQueueApi, type WaterQueueEntry, type TubewellQueueResponse } from 
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
 import { useLocale } from '../../store/locale.store';
-import { formatINR } from '../../utils/formatters';
+import { formatDateTime, formatINR } from '../../utils/formatters';
 import { triggerHaptic, triggerHapticNotification, triggerHapticSelection } from '../../utils/haptics';
 import { useSocketEvent } from '../../lib/useSocketEvents';
 import {
@@ -74,6 +74,9 @@ export default function OwnerWaterQueue() {
   useSocketEvent('waterRequestCancelled', handleQueueEvent);
   useSocketEvent('waterRequestAccepted', handleQueueEvent);
   useSocketEvent('waterRequestRejected', handleQueueEvent);
+  useSocketEvent('waterQueueChanged', handleQueueEvent);
+  useSocketEvent('waterStarted', handleQueueEvent);
+  useSocketEvent('waterStopped', handleQueueEvent);
 
   const handleAcceptRequest = async (id: string) => {
     triggerHapticSelection();
@@ -402,9 +405,19 @@ export default function OwnerWaterQueue() {
               </div>
               <Pill tone="paid">ACTIVE</Pill>
             </div>
-            <div style={{ fontWeight: 800, fontSize: '1.05rem', marginTop: 6, color: '#0b1c12' }}>
-              👨‍🌾 {activeEntry.customerName} ({activeEntry.fieldName})
-            </div>
+             <div style={{ fontWeight: 800, fontSize: '1.05rem', marginTop: 6, color: '#0b1c12' }}>
+               👨‍🌾 {activeEntry.customerName} ({activeEntry.fieldName})
+             </div>
+             {activeEntry.expectedCompletionAt ? (
+               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1b5e20', marginTop: 5 }}>
+                 Expected completion: {formatDateTime(activeEntry.expectedCompletionAt)} ({activeEntry.estimatedRemainingMinutes ?? 0} min remaining)
+               </div>
+             ) : null}
+             {activeEntry.currentDelayReason ? (
+               <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#b45309', marginTop: 5 }}>
+                 ⏳ Delayed: {activeEntry.currentDelayReason}
+               </div>
+             ) : null}
           </div>
         ) : null}
 
@@ -491,10 +504,19 @@ export default function OwnerWaterQueue() {
                           </span>
                         ) : null}
                       </div>
-                      <div style={{ fontSize: '0.84rem', color: '#3b5446', marginTop: 2 }}>
-                        🌱 {entry.fieldName || 'Field'}
-                        {entry.cropName ? ` · 🌾 ${entry.cropName}` : ''}
-                      </div>
+                       <div style={{ fontSize: '0.84rem', color: '#3b5446', marginTop: 2 }}>
+                         🌱 {entry.fieldName || 'Field'}
+                         {entry.cropName ? ` · 🌾 ${entry.cropName}` : ''}
+                       </div>
+                       <div style={{ fontSize: '0.78rem', color: '#1b5e20', fontWeight: 700, marginTop: 4 }}>
+                         ⏱ About {entry.estimatedWaitMinutes ?? 0} min wait
+                         {entry.estimatedStartAt ? ` · Start ${formatDateTime(entry.estimatedStartAt)}` : ''}
+                       </div>
+                       {entry.expectedCompletionAt ? (
+                         <div style={{ fontSize: '0.76rem', color: '#557262', marginTop: 2 }}>
+                           Expected finish: {formatDateTime(entry.expectedCompletionAt)}
+                         </div>
+                       ) : null}
                     </div>
                   </div>
 

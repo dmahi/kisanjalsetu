@@ -1,5 +1,6 @@
 import { WaterQueueService } from './water-queue.service';
 import { QUEUE_STATUS } from './schemas/water-queue.schema';
+import { TranslationService } from '../i18n/translation.service';
 
 const TW_ID = '64b000000000000000000001';
 const REQ_ID = '64b000000000000000000002';
@@ -129,6 +130,36 @@ function makeUsersService() {
   };
 }
 
+function makeRequestModel(durationMinutes = 30) {
+  return {
+    find: jest.fn().mockImplementation(() => ({
+      exec: jest.fn().mockResolvedValue([
+        { _id: REQ_ID, requestedDurationMinutes: durationMinutes },
+      ]),
+    })),
+    findById: jest.fn().mockImplementation(() => ({
+      exec: jest.fn().mockResolvedValue({ _id: REQ_ID, requestedDurationMinutes: durationMinutes }),
+    })),
+    updateOne: jest.fn().mockImplementation(() => ({
+      exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+    })),
+  };
+}
+
+function makeSessionModel(session: any | null = null) {
+  return {
+    findOne: jest.fn().mockImplementation(() => ({
+      exec: jest.fn().mockResolvedValue(session),
+    })),
+  };
+}
+
+function makeWaterGateway() {
+  return {
+    emitWaterQueueChanged: jest.fn(),
+  };
+}
+
 describe('WaterQueueService', () => {
   let service: WaterQueueService;
   let queueModel: ReturnType<typeof makeQueueModel>;
@@ -140,10 +171,14 @@ describe('WaterQueueService', () => {
     service = new WaterQueueService(
       queueModel as any,
       makeConnection() as any,
+      makeRequestModel() as any,
+      makeSessionModel() as any,
       makeTubewellsService() as any,
       notificationsService as any,
       makeFieldsService() as any,
       makeUsersService() as any,
+      new TranslationService() as any,
+      makeWaterGateway() as any,
     );
   });
 
@@ -465,6 +500,67 @@ describe('WaterQueueService', () => {
     expect(calls).toContain('queue_position_changed');
   });
 
+  it('derives live start and completion estimates from the running session and queue durations', async () => {
+    await queueModel.create({
+      _id: '64b000000000000000000138',
+      tubewellId: TW_ID,
+      waterRequestId: REQ_ID,
+      customerId: CUST_ID,
+      fieldId: FIELD_ID,
+      queuePosition: 0,
+      status: QUEUE_STATUS.ACTIVE,
+      startedAt: new Date(Date.now() - 5 * 60000),
+    });
+    await queueModel.create({
+      _id: '64b000000000000000000139',
+      tubewellId: TW_ID,
+      waterRequestId: REQ_ID,
+      customerId: '64b0000000000000000000b5',
+      fieldId: FIELD_ID,
+      queuePosition: 1,
+      status: QUEUE_STATUS.WAITING,
+    });
+    await queueModel.create({
+      _id: '64b00000000000000000013a',
+      tubewellId: TW_ID,
+      waterRequestId: REQ_ID,
+      customerId: '64b0000000000000000000b6',
+      fieldId: FIELD_ID,
+      queuePosition: 2,
+      status: QUEUE_STATUS.WAITING,
+    });
+
+    const session = {
+      tubewellId: TW_ID,
+      status: 'running',
+      startDatetime: new Date(Date.now() - 5 * 60000),
+      estimatedEndDatetime: new Date(Date.now() + 10 * 60000),
+    };
+    const etaService = new WaterQueueService(
+      queueModel as any,
+      makeConnection() as any,
+      makeRequestModel(30) as any,
+      makeSessionModel(session) as any,
+      makeTubewellsService() as any,
+      notificationsService as any,
+      makeFieldsService() as any,
+      makeUsersService() as any,
+      new TranslationService() as any,
+      makeWaterGateway() as any,
+    );
+
+    const queue = await etaService.getQueueForTubewell(TW_ID);
+
+    expect(queue.active?.estimatedRemainingMinutes).toBeGreaterThanOrEqual(9);
+    expect(queue.active?.estimatedRemainingMinutes).toBeLessThanOrEqual(10);
+    expect(queue.waiting[0].estimatedWaitMinutes).toBeGreaterThanOrEqual(9);
+    expect(queue.waiting[0].estimatedWaitMinutes).toBeLessThanOrEqual(10);
+    expect(queue.waiting[0].requestedDurationMinutes).toBe(30);
+    expect(queue.waiting[1].estimatedWaitMinutes).toBeGreaterThanOrEqual(39);
+    expect(queue.waiting[1].estimatedWaitMinutes).toBeLessThanOrEqual(40);
+    expect(queue.waiting[1].expectedCompletionAt).toBeInstanceOf(Date);
+  });
+
   it('a non-owner cannot reorder another tubewell entry', async () => {
     const waiting = await queueModel.create({
       _id: '64b000000000000000000137',
@@ -482,10 +578,14 @@ describe('WaterQueueService', () => {
     const service2 = new WaterQueueService(
       queueModel as any,
       makeConnection() as any,
+      makeRequestModel() as any,
+      makeSessionModel() as any,
       tubewellsService as any,
       notificationsService as any,
       makeFieldsService() as any,
       makeUsersService() as any,
+      new TranslationService() as any,
+      makeWaterGateway() as any,
     );
 
     await expect(service2.moveUp(notOwner, waiting._id)).rejects.toThrow('Not authorized');

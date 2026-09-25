@@ -46,9 +46,28 @@ export class StartSessionDto {
   waterQueueEntryId?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(1440)
+  estimatedDurationMinutes?: number;
+
+  @IsOptional()
   @IsString()
   @MinLength(8)
   idempotencyKey?: string;
+}
+
+export class UpdateSessionEstimateDto {
+  @IsNumber()
+  @Min(1)
+  @Max(1440)
+  estimatedRemainingMinutes: number;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @Max(240)
+  delayReason?: string;
 }
 
 export class StopSessionDto {

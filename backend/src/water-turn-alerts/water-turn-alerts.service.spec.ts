@@ -1,4 +1,5 @@
 import { WaterTurnAlertsService } from './water-turn-alerts.service';
+import { TranslationService } from '../i18n/translation.service';
 import { WATER_TURN_STATUS, WATER_TURN_RESPONSE } from './schemas/water-turn-alert.schema';
 import { QUEUE_STATUS } from '../water-queue/schemas/water-queue.schema';
 import { SESSION_STATUS } from '../common/constants';
@@ -242,6 +243,7 @@ describe('WaterTurnAlertsService', () => {
       notificationsService as any,
       makeLogsService() as any,
       makeWaterGateway() as any,
+      new TranslationService() as any,
     );
   });
 

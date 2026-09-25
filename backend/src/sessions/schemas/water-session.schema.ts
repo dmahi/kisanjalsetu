@@ -39,6 +39,18 @@ export class WaterSession {
   @Prop()
   durationMinutes?: number;
 
+  @Prop({ min: 1, max: 1440 })
+  estimatedDurationMinutes?: number;
+
+  @Prop()
+  estimatedEndDatetime?: Date;
+
+  @Prop({ trim: true })
+  currentDelayReason?: string;
+
+  @Prop()
+  estimateUpdatedAt?: Date;
+
   @Prop()
   billableMinutes?: number;
 

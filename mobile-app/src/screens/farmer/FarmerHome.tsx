@@ -4,6 +4,7 @@ import { Droplets, Compass, Bell, Sprout } from 'lucide-react';
 import { paymentsApi, type DashboardTotals } from '../../api/payments';
 import { waterSessionApi, type WaterSession } from '../../api/sessions';
 import { waterRequestApi, type WaterRequest } from '../../api/requests';
+import { waterQueueApi, type TubewellQueueResponse } from '../../api/queue';
 import { waterTurnAlertsApi, type WaterTurnAlert } from '../../api/waterTurnAlerts';
 import { apiErrorMessage } from '../../api/client';
 import { Card, Stat, Spinner, EmptyState, PageHeader, useToast, Row, Pill, ShareButton } from '../../components/ui';
@@ -32,6 +33,7 @@ export default function FarmerHome() {
   const [dashboard, setDashboard] = useState<DashboardTotals | null>(null);
   const [sessions, setSessions] = useState<WaterSession[]>([]);
   const [activeRequest, setActiveRequest] = useState<WaterRequest | null>(null);
+  const [queueData, setQueueData] = useState<TubewellQueueResponse | null>(null);
   const [liveAlert, setLiveAlert] = useState<WaterTurnAlert | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +52,9 @@ export default function FarmerHome() {
   useSocketEvent('waterStopped', (p: any) => {
     if (p?.tubewellId && p.tubewellId === farmerTubewellId) setSocketRefresh((v) => v + 1);
   });
+  useSocketEvent('waterQueueChanged', (p: any) => {
+    if (p?.tubewellId && p.tubewellId === farmerTubewellId) setSocketRefresh((v) => v + 1);
+  });
 
   useEffect(() => {
     if (!farmerTubewellId) {
@@ -59,13 +64,15 @@ export default function FarmerHome() {
     let cancelled = false;
     const load = async () => {
       try {
-        const [dash, sess, reqs] = await Promise.all([
+        const [dash, sess, reqs, queue] = await Promise.all([
           paymentsApi.dashboard(farmerTubewellId),
           waterSessionApi.listForCustomer({ tubewellId: farmerTubewellId }),
           waterRequestApi.listForCustomer(farmerTubewellId),
+          waterQueueApi.getQueue(farmerTubewellId),
         ]);
         if (cancelled) return;
         setDashboard(dash);
+        setQueueData(queue);
         setSessions((sess || []).slice(0, 5));
         reconcileRunning(sess || []);
 
@@ -94,12 +101,15 @@ export default function FarmerHome() {
     let live = true;
     const poll = async () => {
       try {
-        const sess = await waterSessionApi.listForCustomer({ tubewellId: farmerTubewellId });
+        const [sess, turnAlerts, queue] = await Promise.all([
+          waterSessionApi.listForCustomer({ tubewellId: farmerTubewellId }),
+          waterTurnAlertsApi.listForFarmer(farmerTubewellId).catch(() => []),
+          waterQueueApi.getQueue(farmerTubewellId),
+        ]);
         if (!live) return;
         setSessions((sess || []).slice(0, 5));
+        setQueueData(queue);
         reconcileRunning(sess || []);
-        const turnAlerts = await waterTurnAlertsApi.listForFarmer(farmerTubewellId).catch(() => []);
-        if (!live) return;
         const activeTurn = (turnAlerts || []).find((a) => a.status === 'sent' || a.status === 'acknowledged');
         setLiveAlert(activeTurn || null);
       } catch {
@@ -145,6 +155,10 @@ export default function FarmerHome() {
   }
 
   const totals = dashboard?.totals;
+  const myQueueEntry = queueData
+    ? queueData.waiting.find((entry) => entry.customerId === user?.id) ||
+      (queueData.active?.customerId === user?.id ? queueData.active : null)
+    : null;
 
   const currentBillPaise = running ? Math.round((running.ratePerHourPaise * elapsedMs) / 3600000) : 0;
 
@@ -209,8 +223,19 @@ export default function FarmerHome() {
           <div style={{ fontSize: '0.9rem', color: '#444', marginTop: 4 }}>
             {liveAlert.tubewellName || 'Tubewell'} · {liveAlert.fieldName || 'Field'}
           </div>
+          {myQueueEntry ? (
+            <div style={{ fontSize: '0.86rem', color: '#1e5b35', fontWeight: 800, marginTop: 8 }}>
+              Queue #{myQueueEntry.queuePosition} · About {myQueueEntry.estimatedWaitMinutes ?? 0} min wait
+              {myQueueEntry.expectedCompletionAt ? ` · Expected finish ${formatDateTime(myQueueEntry.expectedCompletionAt)}` : ''}
+            </div>
+          ) : null}
+          {queueData?.active?.currentDelayReason ? (
+            <div style={{ fontSize: '0.86rem', color: '#b45309', fontWeight: 800, marginTop: 6 }}>
+              ⏳ Delayed: {queueData.active.currentDelayReason}
+            </div>
+          ) : null}
           <div style={{ marginTop: 12, display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <button className="btn btn-farmer-action btn-farmer-ready" onClick={() => navigate('/farmer/water-turn')}>
+            <button className="btn btn-farmer-action btn-farmer-ready" onClick={() => navigate(`/farmer/water-turn?alert=${liveAlert.id}`)}>
               उत्तर दें · Answer Now →
             </button>
           </div>
@@ -263,8 +288,14 @@ export default function FarmerHome() {
                   )}
                 </div>
               </div>
+              {myQueueEntry ? (
+                <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 10, background: '#e8f5e9', color: '#1b5e20', fontSize: '0.82rem', fontWeight: 700 }}>
+                  Estimated start: {myQueueEntry.estimatedStartAt ? formatDateTime(myQueueEntry.estimatedStartAt) : 'calculating'}
+                  {myQueueEntry.expectedCompletionAt ? ` · Expected finish: ${formatDateTime(myQueueEntry.expectedCompletionAt)}` : ''}
+                </div>
+              ) : null}
               <button
-                className="btn btn-sm btn-ghost mt-sm"
+                 className="btn btn-sm btn-ghost mt-sm"
                 style={{ width: '100%', marginTop: 10 }}
                 onClick={() => navigate('/farmer/requests')}
               >

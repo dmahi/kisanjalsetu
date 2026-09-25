@@ -10,6 +10,7 @@ export type SocketEventName =
   | 'waterRequestAccepted'
   | 'waterRequestRejected'
   | 'waterRequestCancelled'
+  | 'waterQueueChanged'
   | 'waterTurnAlertSent'
   | 'waterTurnAlertStatus';
 
@@ -106,6 +107,7 @@ function attachListeners(s: Socket) {
   s.on('waterRequestAccepted', (p) => dispatch('waterRequestAccepted', p));
   s.on('waterRequestRejected', (p) => dispatch('waterRequestRejected', p));
   s.on('waterRequestCancelled', (p) => dispatch('waterRequestCancelled', p));
+  s.on('waterQueueChanged', (p) => dispatch('waterQueueChanged', p));
   s.on('waterTurnAlertSent', (p) => dispatch('waterTurnAlertSent', p));
   s.on('waterTurnAlertStatus', (p) => dispatch('waterTurnAlertStatus', p));
 }

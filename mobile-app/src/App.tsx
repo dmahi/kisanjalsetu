@@ -58,7 +58,12 @@ export default function App() {
     if (!user) return;
     return onSocketEvent('waterTurnAlertSent', (p) => {
       const targetId = p?.targetCustomerId || p?.customerId;
-      if (targetId && String(targetId) === String(user.id)) {
+      const type = String(p?.type || 'water_turn_alert');
+      if (
+        targetId &&
+        String(targetId) === String(user.id) &&
+        (type === 'water_turn_alert' || type === 'water_turn_alert_retry')
+      ) {
         startAlertRingtone();
       }
     });

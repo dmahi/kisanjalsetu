@@ -17,7 +17,7 @@ import { FieldsService } from '../fields/fields.service';
 import { CropsService } from '../crops/crops.service';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { TranslationService } from '../i18n/translation.service';
+import { TranslationService, type Locale } from '../i18n/translation.service';
 import { WaterQueueService } from '../water-queue/water-queue.service';
 import { WaterQueueEntry, WaterQueueEntryDocument, QUEUE_STATUS } from '../water-queue/schemas/water-queue.schema';
 import { WaterSession, WaterSessionDocument } from '../sessions/schemas/water-session.schema';
@@ -81,13 +81,11 @@ export class WaterRequestsService {
     // Notify Tubewell Owner
     if (tubewell?.ownerId) {
       const owner = await this.usersService.findById(String(tubewell.ownerId));
-      const locale = owner?.locale || 'en';
-const farmer = await this.usersService.findById(String(req.customerId));
-        const locale = farmer?.locale || 'en';
-        void this.notificationsService.create({
+      const locale = (owner?.locale || 'en') as Locale;
+      void this.notificationsService.create({
         userId: String(tubewell.ownerId),
         title: this.translationService.translate('new_water_request_title', locale),
-        body: `${farmer?.name || 'A farmer'} requested water for ${field.name} (${dto.requestedDurationMinutes} mins).`
+        body: `${farmer?.name || 'A farmer'} requested water for ${field.name} (${dto.requestedDurationMinutes} mins).`,
         type: 'water_request_new',
         data: {
           type: 'water_request_new',
@@ -232,6 +230,7 @@ const farmer = await this.usersService.findById(String(req.customerId));
       await qEntry.save();
       await this.waterQueueService.normalizeQueuePositions(String(req.tubewellId));
     }
+    await this.waterQueueService.emitQueueChanged(String(req.tubewellId), 'cancelled');
 
     const cancelledTubewell = await this.tubewellsService.findById(String(req.tubewellId));
     const cancelledField = req.fieldId

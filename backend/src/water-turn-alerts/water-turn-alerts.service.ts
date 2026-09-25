@@ -31,8 +31,9 @@ import { UsersService } from '../users/users.service';
 import { FieldsService } from '../fields/fields.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
-import { TranslationService } from '../i18n/translation.service';
+import { TranslationService, type Locale } from '../i18n/translation.service';
 import { CreateWaterTurnAlertDto } from './dto/water-turn-alert.dto';
+import { WaterGateway } from '../water/water.gateway';
 
 const ALERT_CHANNEL = 'water_turn_urgent_v3';
 
@@ -291,6 +292,7 @@ export class WaterTurnAlertsService {
     // Notify the farmer immediately so their ringing tone stops and the
     // alert UI clears (push + socket, both targeted at the farmer).
     const farmer = await this.usersService.findById(String(updated.targetCustomerId));
+    const locale = (farmer?.locale || 'en') as Locale;
     await this.notificationsService
       .create({
         userId: String(updated.targetCustomerId),
@@ -503,9 +505,10 @@ export class WaterTurnAlertsService {
         })
         .exec();
       if (!running) continue;
-      const overrunAt =
-        new Date(running.startDatetime).getTime() + (doc.estimatedRemainingMinutes + 5) * 60000;
-      if (Date.now() <= overrunAt) continue;
+      const expectedEnd = running.estimatedEndDatetime
+        ? new Date(running.estimatedEndDatetime).getTime()
+        : new Date(running.startDatetime).getTime() + (doc.estimatedRemainingMinutes + 5) * 60000;
+      if (Date.now() <= expectedEnd) continue;
 
       const updated = await this.alertModel
         .findOneAndUpdate(
@@ -525,7 +528,7 @@ export class WaterTurnAlertsService {
     title: string,
   ): Promise<void> {
     const farmer = await this.usersService.findById(String(doc.targetCustomerId));
-    const locale = farmer?.locale || 'en';
+    const locale = (farmer?.locale || 'en') as Locale;
     const field = doc.fieldId
       ? await this.fieldsService.findByIdForCustomer(String(doc.targetCustomerId), String(doc.fieldId))
       : null;
@@ -535,7 +538,7 @@ export class WaterTurnAlertsService {
       .create({
         userId: String(doc.targetCustomerId),
         title: this.translationService.translate(title, locale),
-  body: this.translationService.translate('water_turn_alert_body', locale, {
+        body: this.translationService.translate('water_turn_alert_body', locale, {
           tubewell: t?.name || 'the tubewell',
           minutes: this.responseMinutes,
           fieldPart: field?.name ? ` Field: ${field.name}` : '',

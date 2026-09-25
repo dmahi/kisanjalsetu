@@ -33,6 +33,7 @@ export interface WaterTurnAlert {
   response?: 'ready' | 'not_ready' | null;
   responseNote?: string | null;
   noResponseAt?: string | null;
+  delayNotifiedAt?: string | null;
   cancelledAt?: string | null;
   cancelledReason?: string | null;
   remainingSeconds: number;

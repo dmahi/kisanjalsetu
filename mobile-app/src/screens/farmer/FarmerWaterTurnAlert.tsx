@@ -190,6 +190,22 @@ export default function FarmerWaterTurnAlert() {
               </Pill>
             </div>
 
+            {focused.delayNotifiedAt ? (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: '#fff3e0', border: '1px solid #ffb74d', color: '#b45309', fontWeight: 800 }}>
+                ⏳ Water is running late. The owner has been notified; stay ready.
+              </div>
+            ) : null}
+            {focused.estimatedRemainingMinutes > 0 ? (
+              <div style={{ marginTop: 10, textAlign: 'center', color: '#1565c0', fontWeight: 800, fontSize: '0.88rem' }}>
+                Your turn is expected in about {focused.estimatedRemainingMinutes} minutes
+              </div>
+            ) : null}
+            {focused.cancelledReason ? (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 9, background: '#ffebee', color: '#b71c1c', fontWeight: 700, fontSize: '0.84rem' }}>
+                Reason: {focused.cancelledReason}
+              </div>
+            ) : null}
+
             <div style={{ marginTop: 14, textAlign: 'center' }}>
               <div style={{ color: '#666', fontSize: '0.75rem', letterSpacing: 1 }}>{t('time_left_to_answer')}</div>
               <div

@@ -83,6 +83,7 @@ export class SessionsService {
       idempotencyKey?: string;
       waterRequestId?: string;
       waterQueueEntryId?: string;
+      estimatedDurationMinutes?: number;
     },
   ): Promise<WaterSessionDocument> {
     const tubewell = await this.tubewellsService.ownerMustOwn(dto.tubewellId, actorId);
@@ -133,6 +134,14 @@ export class SessionsService {
     await this.validateAux(dto.customerId, dto.fieldId, dto.cropId, dto.cropName);
 
     const startDatetime = dto.startDatetime ? new Date(dto.startDatetime) : new Date();
+    const queueRequest = queueEntry
+      ? await this.requestModel.findById(queueEntry.waterRequestId).exec()
+      : null;
+    const estimatedDurationMinutes =
+      dto.estimatedDurationMinutes || queueRequest?.requestedDurationMinutes || undefined;
+    const estimatedEndDatetime = estimatedDurationMinutes
+      ? new Date(startDatetime.getTime() + estimatedDurationMinutes * 60000)
+      : undefined;
 
     const session = await this.connection.startSession();
     try {
@@ -161,8 +170,11 @@ export class SessionsService {
               cropName: dto.cropName || undefined,
               waterRequestId: dto.waterRequestId ? new Types.ObjectId(dto.waterRequestId) : undefined,
               waterQueueEntryId: queueEntry ? queueEntry._id : undefined,
-              startDatetime,
-              status: SESSION_STATUS.RUNNING,
+               startDatetime,
+               estimatedDurationMinutes,
+               estimatedEndDatetime,
+               estimateUpdatedAt: estimatedDurationMinutes ? startDatetime : undefined,
+               status: SESSION_STATUS.RUNNING,
               ratePerHourPaise: tubewell.settings?.ratePerHourPaise ?? 0,
               grossAmountPaise: 0,
               discountAmountPaise: 0,
@@ -185,6 +197,7 @@ export class SessionsService {
         queueEntry.waterSessionId = (result as WaterSessionDocument)._id;
         await queueEntry.save();
         await this.waterQueueService.normalizeQueuePositions(dto.tubewellId);
+        await this.waterQueueService.emitQueueChanged(dto.tubewellId, 'started');
       }
 
       await this.logsService.create({
@@ -288,6 +301,68 @@ export class SessionsService {
     });
 
     await this.handleStopQueueAndNotifications(session, end, billing.durationMinutes, billing.finalPaise);
+
+    return session;
+  }
+
+  async updateEstimate(
+    actorId: string,
+    sessionId: string,
+    estimatedRemainingMinutes: number,
+    delayReason?: string,
+  ): Promise<WaterSessionDocument> {
+    const session = await this.findOwnedSession(actorId, sessionId);
+    if (session.status !== SESSION_STATUS.RUNNING) {
+      throw new BadRequestException('Only a running session can be updated');
+    }
+
+    const now = new Date();
+    const elapsedMinutes = Math.max(
+      0,
+      Math.ceil((now.getTime() - new Date(session.startDatetime).getTime()) / 60000),
+    );
+    session.estimatedDurationMinutes = elapsedMinutes + estimatedRemainingMinutes;
+    session.estimatedEndDatetime = new Date(now.getTime() + estimatedRemainingMinutes * 60000);
+    session.currentDelayReason = delayReason?.trim() || undefined;
+    session.estimateUpdatedAt = now;
+    session.updatedBy = new Types.ObjectId(actorId);
+    await session.save();
+
+    await this.logsService.create({
+      userId: actorId,
+      action: 'session_estimate_updated',
+      entityType: 'water_session',
+      entityId: String(session._id),
+      newValues: {
+        estimatedDurationMinutes: session.estimatedDurationMinutes,
+        estimatedEndDatetime: session.estimatedEndDatetime,
+        delayReason: session.currentDelayReason || null,
+      },
+      description: `Updated expected completion to ${session.estimatedEndDatetime.toISOString()}`,
+    });
+
+    const queue = await this.waterQueueService.getQueueForTubewell(String(session.tubewellId));
+    await Promise.all(
+      queue.waiting.map((entry) =>
+        this.notificationsService.create({
+          userId: entry.customerId,
+          title: entry.queuePosition === 1 ? 'Water Turn Update' : 'Queue Estimate Updated',
+          body: `Queue #${entry.queuePosition}: expected start ${entry.estimatedStartAt?.toLocaleString() || 'soon'}.${delayReason ? ` Delay: ${delayReason}` : ''}`,
+          type: entry.queuePosition === 1 ? 'water_turn_delayed' : 'queue_estimate_updated',
+          data: {
+            type: entry.queuePosition === 1 ? 'water_turn_delayed' : 'queue_estimate_updated',
+            tubewell_id: String(session.tubewellId),
+            water_request_id: entry.waterRequestId,
+            queue_position: String(entry.queuePosition),
+            estimated_wait_minutes: String(entry.estimatedWaitMinutes ?? ''),
+            expected_start_at: entry.estimatedStartAt?.toISOString() || '',
+            expected_completion_at: entry.expectedCompletionAt?.toISOString() || '',
+            delay_reason: delayReason || '',
+          },
+        }),
+      ),
+    );
+    await this.waterQueueService.emitQueueChanged(String(session.tubewellId), 'estimate_updated');
 
     return session;
   }
@@ -699,7 +774,24 @@ export class SessionsService {
     if (session.status === SESSION_STATUS.CANCELLED) {
       throw new BadRequestException('Session already cancelled');
     }
+    if (session.status !== SESSION_STATUS.RUNNING) {
+      throw new BadRequestException('Only a running session can be cancelled');
+    }
     const oldSnap = this.snapshot(session);
+    const activeEntry = await this.queueModel.findOne({
+      waterSessionId: session._id,
+      status: QUEUE_STATUS.ACTIVE,
+    }).exec();
+    if (activeEntry) {
+      activeEntry.status = QUEUE_STATUS.CANCELLED;
+      activeEntry.removedAt = new Date();
+      await activeEntry.save();
+      await this.requestModel.updateOne(
+        { _id: activeEntry.waterRequestId },
+        { $set: { status: WATER_REQUEST_STATUS.CANCELLED, cancelledAt: new Date() } },
+      ).exec();
+      await this.waterQueueService.normalizeQueuePositions(String(session.tubewellId));
+    }
     session.status = SESSION_STATUS.CANCELLED;
     session.runningLock = undefined;
     session.updatedBy = new Types.ObjectId(actorId);
@@ -713,6 +805,18 @@ export class SessionsService {
       newValues: this.snapshot(session),
       description: 'Cancelled water session',
     });
+    void this.notificationsService.create({
+      userId: String(session.customerId),
+      title: 'Water Session Cancelled',
+      body: 'The owner cancelled your active water session. The queue has been updated.',
+      type: 'water_session_cancelled',
+      data: {
+        type: 'water_session_cancelled',
+        tubewell_id: String(session.tubewellId),
+        water_session_id: String(session._id),
+      },
+    });
+    await this.waterQueueService.emitQueueChanged(String(session.tubewellId), 'cancelled');
     return session;
   }
 
@@ -1037,5 +1141,7 @@ export class SessionsService {
         data: { type: 'queue_next', tubewell_id: String(session.tubewellId) },
       });
     }
+
+    await this.waterQueueService.emitQueueChanged(String(session.tubewellId), 'completed');
   }
 }

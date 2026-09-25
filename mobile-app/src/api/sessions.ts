@@ -10,6 +10,10 @@ export interface WaterSession {
   startDatetime: string;
   endDatetime?: string | null;
   durationMinutes?: number | null;
+  estimatedDurationMinutes?: number | null;
+  estimatedEndDatetime?: string | null;
+  currentDelayReason?: string | null;
+  estimateUpdatedAt?: string | null;
   ratePerHourPaise: number;
   grossAmountPaise: number;
   discountAmountPaise: number;
@@ -35,6 +39,7 @@ export interface StartSessionPayload {
   idempotencyKey?: string;
   waterRequestId?: string;
   waterQueueEntryId?: string;
+  estimatedDurationMinutes?: number;
 }
 
 export interface ManualSessionPayload {
@@ -66,6 +71,20 @@ export const waterSessionApi = {
 
   cancel: (id: string): Promise<WaterSession> =>
     apiRequest({ url: `/tubewell/water-sessions/${id}/cancel`, method: 'POST' }),
+
+  updateEstimate: (
+    id: string,
+    estimatedRemainingMinutes: number,
+    delayReason?: string,
+  ): Promise<WaterSession> =>
+    apiRequest({
+      url: `/tubewell/water-sessions/${id}/estimate`,
+      method: 'POST',
+      data: {
+        estimatedRemainingMinutes,
+        delayReason: delayReason?.trim() || undefined,
+      },
+    }),
 
   listForOwner: (tubewellId: string, params?: Record<string, unknown>): Promise<WaterSession[]> =>
     apiRequest({ url: '/tubewell/water-sessions', method: 'GET', params: { tubewellId, ...params } }),

@@ -15,7 +15,17 @@ import { TubewellsService } from '../tubewells/tubewells.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FieldsService } from '../fields/fields.service';
 import { UsersService } from '../users/users.service';
-import { TranslationService } from '../i18n/translation.service';
+import { TranslationService, type Locale } from '../i18n/translation.service';
+import {
+  WaterRequest,
+  WaterRequestDocument,
+} from '../water-requests/schemas/water-request.schema';
+import {
+  WaterSession,
+  WaterSessionDocument,
+} from '../sessions/schemas/water-session.schema';
+import { SESSION_STATUS } from '../common/constants';
+import { WaterGateway } from '../water/water.gateway';
 
 @Injectable()
 export class WaterQueueService {
@@ -23,11 +33,16 @@ export class WaterQueueService {
     @InjectModel(WaterQueueEntry.name)
     private readonly queueModel: Model<WaterQueueEntryDocument>,
     @InjectConnection() private readonly connection: Connection,
+    @InjectModel(WaterRequest.name)
+    private readonly requestModel: Model<WaterRequestDocument>,
+    @InjectModel(WaterSession.name)
+    private readonly sessionModel: Model<WaterSessionDocument>,
     private readonly tubewellsService: TubewellsService,
     private readonly notificationsService: NotificationsService,
     private readonly fieldsService: FieldsService,
     private readonly usersService: UsersService,
     private readonly translationService: TranslationService,
+    private readonly waterGateway: WaterGateway,
   ) {}
 
   /** Normalize waiting queue positions to contiguous integers 1..N */
@@ -87,7 +102,7 @@ export class WaterQueueService {
 
     // Notify farmer: Accepted + Queue position
     const farmer = await this.usersService.findById(dto.customerId);
-    const locale = farmer?.locale || 'en';
+    const locale = (farmer?.locale || 'en') as Locale;
     void this.notificationsService.create({
       userId: dto.customerId,
       title: this.translationService.translate('water_request_accepted_title', locale),
@@ -117,43 +132,99 @@ export class WaterQueueService {
       });
     }
 
+    await this.emitQueueChanged(dto.tubewellId, 'accepted');
     return entry;
   }
 
-  /** Get water queue for tubewell */
   async getQueueForTubewell(tubewellId: string): Promise<{
     active: any | null;
     waiting: any[];
     history: any[];
+    generatedAt: Date;
   }> {
     const tubewell = await this.tubewellsService.findById(tubewellId);
     const tubewellName = tubewell?.name || null;
 
-    const activeDoc = await this.queueModel
-      .findOne({
-        tubewellId: new Types.ObjectId(tubewellId),
-        status: QUEUE_STATUS.ACTIVE,
-      })
-      .exec();
+    const [activeDoc, waitingDocs, historyDocs, runningSession] = await Promise.all([
+      this.queueModel
+        .findOne({
+          tubewellId: new Types.ObjectId(tubewellId),
+          status: QUEUE_STATUS.ACTIVE,
+        })
+        .exec(),
+      this.queueModel
+        .find({
+          tubewellId: new Types.ObjectId(tubewellId),
+          status: QUEUE_STATUS.WAITING,
+        })
+        .sort({ queuePosition: 1 })
+        .exec(),
+      this.queueModel
+        .find({
+          tubewellId: new Types.ObjectId(tubewellId),
+          status: { $in: [QUEUE_STATUS.COMPLETED, QUEUE_STATUS.REMOVED, QUEUE_STATUS.CANCELLED] },
+        })
+        .sort({ updatedAt: -1 })
+        .limit(20)
+        .exec(),
+      this.sessionModel
+        .findOne({
+          tubewellId: new Types.ObjectId(tubewellId),
+          status: SESSION_STATUS.RUNNING,
+        })
+        .exec(),
+    ]);
 
-    const waitingDocs = await this.queueModel
-      .find({
-        tubewellId: new Types.ObjectId(tubewellId),
-        status: QUEUE_STATUS.WAITING,
-      })
-      .sort({ queuePosition: 1 })
-      .exec();
+    const liveEntries = [activeDoc, ...waitingDocs].filter(Boolean) as WaterQueueEntryDocument[];
+    const requestIds = liveEntries.map((entry) => entry.waterRequestId);
+    const requests = requestIds.length
+      ? await this.requestModel.find({ _id: { $in: requestIds } }).exec()
+      : [];
+    const requestById = new Map(requests.map((request) => [String(request._id), request]));
 
-    const historyDocs = await this.queueModel
-      .find({
-        tubewellId: new Types.ObjectId(tubewellId),
-        status: { $in: [QUEUE_STATUS.COMPLETED, QUEUE_STATUS.REMOVED, QUEUE_STATUS.CANCELLED] },
-      })
-      .sort({ updatedAt: -1 })
-      .limit(20)
-      .exec();
+    const now = new Date();
+    let activeExpectedEnd: Date | null = null;
+    if (runningSession?.estimatedEndDatetime) {
+      activeExpectedEnd = new Date(runningSession.estimatedEndDatetime);
+    } else if (runningSession?.estimatedDurationMinutes) {
+      activeExpectedEnd = new Date(
+        new Date(runningSession.startDatetime).getTime() + runningSession.estimatedDurationMinutes * 60000,
+      );
+    } else if (activeDoc) {
+      const activeRequest = requestById.get(String(activeDoc.waterRequestId));
+      if (activeRequest?.requestedDurationMinutes) {
+        activeExpectedEnd = new Date(
+          new Date(runningSession?.startDatetime || activeDoc.startedAt || now).getTime() +
+            activeRequest.requestedDurationMinutes * 60000,
+        );
+      }
+    }
 
-    const populateEntry = async (entry: WaterQueueEntryDocument) => {
+    let accumulatedMs = activeExpectedEnd
+      ? Math.max(0, activeExpectedEnd.getTime() - now.getTime())
+      : 0;
+    const waitingTimings = new Map<string, any>();
+
+    for (const entry of waitingDocs) {
+      const request = requestById.get(String(entry.waterRequestId));
+      const durationMinutes = request?.requestedDurationMinutes || 0;
+      const estimatedStartAt = new Date(now.getTime() + accumulatedMs);
+      accumulatedMs += durationMinutes * 60000;
+      waitingTimings.set(String(entry._id), {
+        requestedDurationMinutes: request?.requestedDurationMinutes ?? null,
+        estimatedWaitMinutes: Math.max(0, Math.ceil((estimatedStartAt.getTime() - now.getTime()) / 60000)),
+        estimatedStartAt,
+        expectedCompletionAt: durationMinutes
+          ? new Date(estimatedStartAt.getTime() + durationMinutes * 60000)
+          : null,
+        etaAvailable: durationMinutes > 0,
+      });
+    }
+
+    const populateEntry = async (
+      entry: WaterQueueEntryDocument,
+      timing: Record<string, unknown> = {},
+    ) => {
       const farmer = await this.usersService.findById(String(entry.customerId));
       const field = entry.fieldId
         ? await this.fieldsService.findByIdForCustomer(String(entry.customerId), String(entry.fieldId))
@@ -177,14 +248,56 @@ export class WaterQueueService {
         completedAt: entry.completedAt || null,
         removedAt: entry.removedAt || null,
         createdAt: (entry as any).createdAt,
+        ...timing,
       };
     };
 
-    const active = activeDoc ? await populateEntry(activeDoc) : null;
-    const waiting = await Promise.all(waitingDocs.map(populateEntry));
-    const history = await Promise.all(historyDocs.map(populateEntry));
+    const active = activeDoc
+      ? await populateEntry(activeDoc, {
+          requestedDurationMinutes: requestById.get(String(activeDoc.waterRequestId))?.requestedDurationMinutes ?? null,
+          estimatedRemainingMinutes: activeExpectedEnd
+            ? Math.max(0, Math.ceil((activeExpectedEnd.getTime() - now.getTime()) / 60000))
+            : null,
+          expectedCompletionAt: activeExpectedEnd,
+          etaAvailable: Boolean(activeExpectedEnd),
+          currentDelayReason: runningSession?.currentDelayReason || null,
+        })
+      : null;
+    const waiting = await Promise.all(
+      waitingDocs.map((entry) => populateEntry(entry, waitingTimings.get(String(entry._id)) || {})),
+    );
+    const history = await Promise.all(historyDocs.map((entry) => populateEntry(entry)));
 
-    return { active, waiting, history };
+    return { active, waiting, history, generatedAt: now };
+  }
+
+  async emitQueueChanged(tubewellId: string, reason: string): Promise<void> {
+    if (!this.waterGateway) return;
+    const queue = await this.getQueueForTubewell(tubewellId);
+    this.waterGateway.emitWaterQueueChanged({
+      tubewellId,
+      reason,
+      generatedAt: queue.generatedAt,
+      active: queue.active
+        ? {
+            id: queue.active.id,
+            customerId: queue.active.customerId,
+            estimatedRemainingMinutes: queue.active.estimatedRemainingMinutes,
+            expectedCompletionAt: queue.active.expectedCompletionAt,
+            currentDelayReason: queue.active.currentDelayReason,
+          }
+        : null,
+      waiting: queue.waiting.map((entry) => ({
+        id: entry.id,
+        waterRequestId: entry.waterRequestId,
+        customerId: entry.customerId,
+        queuePosition: entry.queuePosition,
+        estimatedWaitMinutes: entry.estimatedWaitMinutes,
+        estimatedStartAt: entry.estimatedStartAt,
+        expectedCompletionAt: entry.expectedCompletionAt,
+        etaAvailable: entry.etaAvailable,
+      })),
+    });
   }
 
   /** Move entry up in queue (pos -> pos - 1) */
@@ -224,6 +337,7 @@ export class WaterQueueService {
       });
 
       await this.notifyQueuePositionChanges(String(entry.tubewellId));
+      await this.emitQueueChanged(String(entry.tubewellId), 'reordered');
     } finally {
       await session.endSession();
     }
@@ -264,6 +378,7 @@ export class WaterQueueService {
       });
 
       await this.notifyQueuePositionChanges(String(entry.tubewellId));
+      await this.emitQueueChanged(String(entry.tubewellId), 'reordered');
     } finally {
       await session.endSession();
     }
@@ -305,6 +420,7 @@ export class WaterQueueService {
       });
 
       await this.notifyQueuePositionChanges(String(entry.tubewellId));
+      await this.emitQueueChanged(String(entry.tubewellId), 'reordered');
     } finally {
       await session.endSession();
     }
@@ -354,6 +470,7 @@ export class WaterQueueService {
       });
 
       await this.notifyQueuePositionChanges(String(entry.tubewellId));
+      await this.emitQueueChanged(String(entry.tubewellId), 'reordered');
     } finally {
       await session.endSession();
     }
@@ -378,14 +495,19 @@ export class WaterQueueService {
         entry.status = QUEUE_STATUS.REMOVED;
         entry.removedAt = new Date();
         await entry.save({ session });
+        await this.requestModel.updateOne(
+          { _id: entry.waterRequestId, status: 'accepted' },
+          { $set: { status: 'cancelled', cancelledAt: entry.removedAt } },
+          { session },
+        ).exec();
 
         await this.normalizeQueuePositions(String(entry.tubewellId), session);
       });
 
       // Notify farmer about removal
       const farmer = await this.usersService.findById(String(entry.customerId));
-        const locale = farmer?.locale || 'en';
-        void this.notificationsService.create({
+      const locale = (farmer?.locale || 'en') as Locale;
+      void this.notificationsService.create({
         userId: String(entry.customerId),
         title: this.translationService.translate('removed_from_queue_title', locale),
         body: `Your water request has been removed from the queue for ${tubewellName}.`,
@@ -398,6 +520,7 @@ export class WaterQueueService {
       });
 
       await this.notifyQueuePositionChanges(String(entry.tubewellId));
+      await this.emitQueueChanged(String(entry.tubewellId), 'removed');
     } finally {
       await session.endSession();
     }
@@ -418,7 +541,7 @@ export class WaterQueueService {
 
     for (const item of waiting) {
       const farmer = await this.usersService.findById(String(item.customerId));
-      const locale = farmer?.locale || 'en';
+      const locale = (farmer?.locale || 'en') as Locale;
       void this.notificationsService.create({
         userId: String(item.customerId),
         title: this.translationService.translate('queue_position_updated_title', locale),

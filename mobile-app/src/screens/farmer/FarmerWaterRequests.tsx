@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { waterRequestApi, type WaterRequest } from '../../api/requests';
+import { waterQueueApi, type TubewellQueueResponse } from '../../api/queue';
 import { fieldsApi, type Field } from '../../api/common';
 import { apiErrorMessage } from '../../api/client';
 import { useSelectionStore } from '../../store/tubewellSelection.store';
@@ -29,6 +30,7 @@ export default function FarmerWaterRequests() {
   const { tubewells } = useMyTubewells();
 
   const [requests, setRequests] = useState<WaterRequest[]>([]);
+  const [queueData, setQueueData] = useState<TubewellQueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -58,8 +60,12 @@ export default function FarmerWaterRequests() {
 
   const loadRequests = async () => {
     try {
-      const data = await waterRequestApi.listForCustomer(farmerTubewellId || undefined);
+      const [data, queue] = await Promise.all([
+        waterRequestApi.listForCustomer(farmerTubewellId || undefined),
+        farmerTubewellId ? waterQueueApi.getQueue(farmerTubewellId) : Promise.resolve(null),
+      ]);
       setRequests(data || []);
+      setQueueData(queue);
     } catch (err) {
       show(apiErrorMessage(err), 'error');
     } finally {
@@ -76,6 +82,9 @@ export default function FarmerWaterRequests() {
   useSocketEvent('waterRequestAccepted', handleReqEvent);
   useSocketEvent('waterRequestRejected', handleReqEvent);
   useSocketEvent('waterRequestCancelled', handleReqEvent);
+  useSocketEvent('waterQueueChanged', (p) => {
+    if (p?.tubewellId === farmerTubewellId) void loadRequests();
+  });
 
   useEffect(() => {
     const twId = selectedTwId || farmerTubewellId;
@@ -147,10 +156,11 @@ export default function FarmerWaterRequests() {
   const handleAddToCalendar = async (req: WaterRequest) => {
     triggerHapticSelection();
     try {
+      const queueEntry = queueData?.waiting.find((entry) => entry.waterRequestId === req.id);
       await addWaterTurnToCalendar({
         title: `💧 Water Turn: ${req.fieldName || 'Field'} (${req.tubewellName || 'Tubewell'})`,
         description: `Water session for crop: ${req.cropName || 'N/A'}. Duration: ${req.requestedDurationMinutes} mins.`,
-        startTime: new Date(Date.now() + 15 * 60 * 1000),
+        startTime: queueEntry?.estimatedStartAt ? new Date(queueEntry.estimatedStartAt) : new Date(Date.now() + 15 * 60 * 1000),
         durationMinutes: req.requestedDurationMinutes,
       });
       show('Water turn added to your calendar!', 'success');
@@ -235,8 +245,10 @@ export default function FarmerWaterRequests() {
         requests.map((req) => {
           const isPending = req.status === 'pending';
           const isApproved = req.status === 'accepted';
-          const isCompleted = req.status === 'completed';
-          const isRejected = req.status === 'rejected';
+           const isCompleted = req.status === 'completed';
+           const isRejected = req.status === 'rejected';
+           const queueEntry = queueData?.waiting.find((entry) => entry.waterRequestId === req.id) ||
+             (queueData?.active?.waterRequestId === req.id ? queueData.active : null);
 
           const cardClass = isPending
             ? 'req-card-pending'
@@ -299,9 +311,26 @@ export default function FarmerWaterRequests() {
                     </div>
                   ) : null}
                 </div>
-              </div>
+               </div>
 
-              {/* Extra Details */}
+               {isApproved && queueEntry ? (
+                 <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 12, background: queueEntry.currentDelayReason ? '#fff3e0' : '#e8f5e9', border: `1px solid ${queueEntry.currentDelayReason ? '#ffb74d' : '#a5d6a7'}` }}>
+                   <div style={{ fontSize: '0.84rem', fontWeight: 800, color: queueEntry.currentDelayReason ? '#b45309' : '#1b5e20' }}>
+                     ⏱ About {queueEntry.estimatedWaitMinutes ?? 0} min wait
+                   </div>
+                   <div style={{ fontSize: '0.78rem', color: '#40584a', marginTop: 3 }}>
+                     Expected start: {queueEntry.estimatedStartAt ? formatDateTime(queueEntry.estimatedStartAt) : 'calculating'}
+                     {queueEntry.expectedCompletionAt ? ` · Expected finish: ${formatDateTime(queueEntry.expectedCompletionAt)}` : ''}
+                   </div>
+                   {queueEntry.currentDelayReason ? (
+                     <div style={{ fontSize: '0.8rem', color: '#b45309', fontWeight: 700, marginTop: 4 }}>
+                       Delayed: {queueEntry.currentDelayReason}
+                     </div>
+                   ) : null}
+                 </div>
+               ) : null}
+
+               {/* Extra Details */}
               {req.note ? (
                 <div
                   style={{
@@ -390,9 +419,9 @@ export default function FarmerWaterRequests() {
                     </button>
                   ) : null}
 
-                  {isPending ? (
-                    <button
-                      className="queue-action-pill danger"
+                   {isPending || isApproved ? (
+                     <button
+                       className="queue-action-pill danger"
                       onClick={() => handleCancelRequest(req.id)}
                     >
                       ❌ {t('cancel_request')}

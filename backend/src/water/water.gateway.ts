@@ -246,6 +246,16 @@ export class WaterGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
+  emitWaterQueueChanged(data: {
+    tubewellId: string;
+    reason: string;
+    generatedAt: Date;
+    active: Record<string, unknown> | null;
+    waiting: Array<Record<string, unknown>>;
+  }) {
+    this.server.to(`tubewell:${data.tubewellId}`).emit('waterQueueChanged', data);
+  }
+
   /** Water turn alert sent / retried / delayed → farmer + tubewell room. */
   emitWaterTurnAlertSent(data: {
     alertId: string;
