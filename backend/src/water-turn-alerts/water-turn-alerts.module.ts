@@ -21,6 +21,7 @@ import { FieldsModule } from '../fields/fields.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ActivityLogsModule } from '../activity-logs/activity-logs.module';
 import { WaterModule } from '../water/water.module';
+import { TranslationService } from '../i18n/translation.service';
 
 @Module({
   imports: [
@@ -37,7 +38,7 @@ import { WaterModule } from '../water/water.module';
     WaterModule,
   ],
   controllers: [WaterTurnAlertsController],
-  providers: [WaterTurnAlertsService, WaterTurnScheduler],
+  providers: [WaterTurnAlertsService, WaterTurnScheduler, TranslationService],
   exports: [WaterTurnAlertsService],
 })
 export class WaterTurnAlertsModule {}

@@ -35,6 +35,9 @@ export class User {
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   managedBy?: Types.ObjectId;
+  // Locale for multi-language support (ISO code, e.g., 'en', 'hi', 'pa')
+  @Prop({ required: true, enum: ['en', 'hi', 'pa'], default: 'en' })
+  locale: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

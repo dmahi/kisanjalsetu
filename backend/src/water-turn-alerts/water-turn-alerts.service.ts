@@ -31,7 +31,7 @@ import { UsersService } from '../users/users.service';
 import { FieldsService } from '../fields/fields.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
-import { WaterGateway } from '../water/water.gateway';
+import { TranslationService } from '../i18n/translation.service';
 import { CreateWaterTurnAlertDto } from './dto/water-turn-alert.dto';
 
 const ALERT_CHANNEL = 'water_turn_urgent_v3';
@@ -40,21 +40,22 @@ const ALERT_CHANNEL = 'water_turn_urgent_v3';
 export class WaterTurnAlertsService {
   private readonly logger = new Logger('WaterTurnAlertsService');
 
-  constructor(
-    @InjectModel(WaterTurnAlert.name)
-    private readonly alertModel: Model<WaterTurnAlertDocument>,
-    @InjectModel(WaterQueueEntry.name)
-    private readonly queueModel: Model<WaterQueueEntryDocument>,
-    @InjectModel(WaterSession.name)
-    private readonly sessionModel: Model<WaterSessionDocument>,
-    private readonly config: ConfigService,
-    private readonly tubewellsService: TubewellsService,
-    private readonly usersService: UsersService,
-    private readonly fieldsService: FieldsService,
-    private readonly notificationsService: NotificationsService,
-    private readonly logsService: ActivityLogsService,
-    private readonly waterGateway: WaterGateway,
-  ) {}
+    constructor(
+      @InjectModel(WaterTurnAlert.name)
+      private readonly alertModel: Model<WaterTurnAlertDocument>,
+      @InjectModel(WaterQueueEntry.name)
+      private readonly queueModel: Model<WaterQueueEntryDocument>,
+      @InjectModel(WaterSession.name)
+      private readonly sessionModel: Model<WaterSessionDocument>,
+      private readonly config: ConfigService,
+      private readonly tubewellsService: TubewellsService,
+      private readonly usersService: UsersService,
+      private readonly fieldsService: FieldsService,
+      private readonly notificationsService: NotificationsService,
+      private readonly logsService: ActivityLogsService,
+      private readonly waterGateway: WaterGateway,
+      private readonly translationService: TranslationService,
+    ) {}
 
   private get responseMinutes(): number {
     const m = Number(this.config.get<number>('WATER_TURN_RESPONSE_MINUTES', 5));
@@ -127,7 +128,7 @@ export class WaterTurnAlertsService {
       throw err;
     }
 
-    await this.pushToFarmer(doc, 'water_turn_alert', 'Your Water Turn Is Starting');
+    await this.pushToFarmer(doc, 'water_turn_alert', 'water_turn_alert_title');
     await this.logsService.create({
       userId: ownerId,
       action: 'water_turn_alert_sent',
@@ -257,7 +258,7 @@ export class WaterTurnAlertsService {
       .exec();
     if (!updated) throw new ConflictException('Alert was already retried');
 
-    await this.pushToFarmer(updated, 'water_turn_alert_retry', 'Water Turn — Please Confirm Again');
+    await this.pushToFarmer(updated, 'water_turn_alert_retry', 'water_turn_alert_retry_again_title');
     await this.logsService.create({
       userId: ownerId,
       action: 'water_turn_alert_retried',
@@ -293,7 +294,7 @@ export class WaterTurnAlertsService {
     await this.notificationsService
       .create({
         userId: String(updated.targetCustomerId),
-        title: 'Water Turn Alert Cancelled',
+        title: this.translationService.translate('water_turn_alert_cancelled_title', locale),
         body: `Your water turn alert was cancelled by the owner.`,
         type: 'water_turn_cancelled',
         channel: ALERT_CHANNEL,
@@ -474,7 +475,7 @@ export class WaterTurnAlertsService {
           )
           .exec();
         if (!updated) continue;
-        await this.pushToFarmer(updated, 'water_turn_alert_retry', 'Water Turn — Please Confirm Now');
+        await this.pushToFarmer(updated, 'water_turn_alert_retry', 'water_turn_alert_retry_now_title');
         await this.logsService.create({
           userId: String(updated.sentBy || updated.createdBy || updated.tubewellId),
           action: 'water_turn_alert_retry',
@@ -514,7 +515,7 @@ export class WaterTurnAlertsService {
         )
         .exec();
       if (!updated) continue;
-      await this.pushToFarmer(updated, 'water_turn_delayed', 'Water Is Running Late');
+      await this.pushToFarmer(updated, 'water_turn_delayed', 'water_turn_alert_delayed_title');
     }
   }
 
@@ -524,6 +525,7 @@ export class WaterTurnAlertsService {
     title: string,
   ): Promise<void> {
     const farmer = await this.usersService.findById(String(doc.targetCustomerId));
+    const locale = farmer?.locale || 'en';
     const field = doc.fieldId
       ? await this.fieldsService.findByIdForCustomer(String(doc.targetCustomerId), String(doc.fieldId))
       : null;
@@ -532,10 +534,12 @@ export class WaterTurnAlertsService {
     await this.notificationsService
       .create({
         userId: String(doc.targetCustomerId),
-        title,
-        body: `You're next for water at ${t?.name || 'the tubewell'}. Please confirm READY or NOT READY within ${this.responseMinutes} minutes.${
-          field?.name ? ` Field: ${field.name}` : ''
-        }`,
+        title: this.translationService.translate(title, locale),
+  body: this.translationService.translate('water_turn_alert_body', locale, {
+          tubewell: t?.name || 'the tubewell',
+          minutes: this.responseMinutes,
+          fieldPart: field?.name ? ` Field: ${field.name}` : '',
+        }),
         type,
         channel: ALERT_CHANNEL,
         priority: 'high',

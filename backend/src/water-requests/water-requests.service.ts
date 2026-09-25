@@ -17,6 +17,7 @@ import { FieldsService } from '../fields/fields.service';
 import { CropsService } from '../crops/crops.service';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { TranslationService } from '../i18n/translation.service';
 import { WaterQueueService } from '../water-queue/water-queue.service';
 import { WaterQueueEntry, WaterQueueEntryDocument, QUEUE_STATUS } from '../water-queue/schemas/water-queue.schema';
 import { WaterSession, WaterSessionDocument } from '../sessions/schemas/water-session.schema';
@@ -41,6 +42,7 @@ export class WaterRequestsService {
     private readonly waterQueueService: WaterQueueService,
     private readonly waterGateway: WaterGateway,
     private readonly money: MoneyService,
+    private readonly translationService: TranslationService,
   ) {}
 
   /** Farmer creates a new water request */
@@ -78,10 +80,14 @@ export class WaterRequestsService {
 
     // Notify Tubewell Owner
     if (tubewell?.ownerId) {
-      void this.notificationsService.create({
+      const owner = await this.usersService.findById(String(tubewell.ownerId));
+      const locale = owner?.locale || 'en';
+const farmer = await this.usersService.findById(String(req.customerId));
+        const locale = farmer?.locale || 'en';
+        void this.notificationsService.create({
         userId: String(tubewell.ownerId),
-        title: 'New Water Request',
-        body: `${farmer?.name || 'A farmer'} requested water for ${field.name} (${dto.requestedDurationMinutes} mins).`,
+        title: this.translationService.translate('new_water_request_title', locale),
+        body: `${farmer?.name || 'A farmer'} requested water for ${field.name} (${dto.requestedDurationMinutes} mins).`
         type: 'water_request_new',
         data: {
           type: 'water_request_new',

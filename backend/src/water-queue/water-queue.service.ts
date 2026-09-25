@@ -15,6 +15,7 @@ import { TubewellsService } from '../tubewells/tubewells.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FieldsService } from '../fields/fields.service';
 import { UsersService } from '../users/users.service';
+import { TranslationService } from '../i18n/translation.service';
 
 @Injectable()
 export class WaterQueueService {
@@ -26,6 +27,7 @@ export class WaterQueueService {
     private readonly notificationsService: NotificationsService,
     private readonly fieldsService: FieldsService,
     private readonly usersService: UsersService,
+    private readonly translationService: TranslationService,
   ) {}
 
   /** Normalize waiting queue positions to contiguous integers 1..N */
@@ -84,9 +86,11 @@ export class WaterQueueService {
     });
 
     // Notify farmer: Accepted + Queue position
+    const farmer = await this.usersService.findById(dto.customerId);
+    const locale = farmer?.locale || 'en';
     void this.notificationsService.create({
       userId: dto.customerId,
-      title: 'Water Request Accepted',
+      title: this.translationService.translate('water_request_accepted_title', locale),
       body: `Your water request has been accepted. You are currently #${newPos} in the queue for ${tubewellName}.`,
       type: 'water_request_accepted',
       data: {
@@ -101,7 +105,7 @@ export class WaterQueueService {
     if (newPos === 1) {
       void this.notificationsService.create({
         userId: dto.customerId,
-        title: 'You Are Next!',
+        title: this.translationService.translate('you_are_next_title', locale),
         body: `You are next for water at ${tubewellName}.`,
         type: 'queue_next',
         data: {
@@ -379,9 +383,11 @@ export class WaterQueueService {
       });
 
       // Notify farmer about removal
-      void this.notificationsService.create({
+      const farmer = await this.usersService.findById(String(entry.customerId));
+        const locale = farmer?.locale || 'en';
+        void this.notificationsService.create({
         userId: String(entry.customerId),
-        title: 'Removed from Queue',
+        title: this.translationService.translate('removed_from_queue_title', locale),
         body: `Your water request has been removed from the queue for ${tubewellName}.`,
         type: 'queue_removed',
         data: {
@@ -411,9 +417,11 @@ export class WaterQueueService {
       .exec();
 
     for (const item of waiting) {
+      const farmer = await this.usersService.findById(String(item.customerId));
+      const locale = farmer?.locale || 'en';
       void this.notificationsService.create({
         userId: String(item.customerId),
-        title: 'Queue Position Updated',
+        title: this.translationService.translate('queue_position_updated_title', locale),
         body: `Your water queue position has been updated. You are now #${item.queuePosition} for ${tubewellName}.`,
         type: 'queue_position_changed',
         data: {
@@ -426,7 +434,7 @@ export class WaterQueueService {
       if (item.queuePosition === 1) {
         void this.notificationsService.create({
           userId: String(item.customerId),
-          title: 'You Are Next!',
+          title: this.translationService.translate('you_are_next_title', locale),
           body: `You are next for water at ${tubewellName}.`,
           type: 'queue_next',
           data: {
